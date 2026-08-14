@@ -8,7 +8,7 @@ function toFileUri(path: string): string {
 }
 
 export const CameraRollService = {
-  /** Saves the finished (already-watermarked) video into a dedicated camera-roll album. Throws if permission is denied. */
+  /** Saves the recorded video into a dedicated camera-roll album. Throws if permission is denied. */
   async saveVideo(path: string): Promise<void> {
     const granted = await PermissionsService.requestMediaLibraryPermission();
     if (!granted) {

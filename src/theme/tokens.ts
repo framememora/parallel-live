@@ -22,13 +22,8 @@ export const colors = {
   textSecondary: 'rgba(255,255,255,0.62)',
   textTertiary: 'rgba(255,255,255,0.40)',
 
-  /**
-   * Translucent chrome over the camera. `glass` is the default pill fill;
-   * `glassStrong` is for anything that must stay legible over a blown-out
-   * white frame (the watermark, primarily).
-   */
+  /** Translucent chrome over the camera — the fill behind every pill. */
   glass: 'rgba(0,0,0,0.32)',
-  glassStrong: 'rgba(0,0,0,0.55)',
   /** Hairline outline that separates glass chrome from a bright background. */
   hairline: 'rgba(255,255,255,0.16)',
 
