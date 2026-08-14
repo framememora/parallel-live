@@ -1,18 +1,17 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Avatar } from '../../../components/Avatar';
+import { GlyphIcon } from '../../../components/icons/GlyphIcon';
 import { useSettingsStore } from '../../../state/settingsStore';
 import { colors, radii, spacing, textShadow, type } from '../../../theme/tokens';
 import { FollowerCounter } from './FollowerCounter';
-import { RecordingIndicator } from './RecordingIndicator';
 import { ViewerCounter } from './ViewerCounter';
 
 interface LiveHeaderProps {
-  /** While false, the status row and End control are hidden — only identity shows. */
+  /** While false, the status pills and the close control are hidden — only identity shows. */
   isLive: boolean;
   viewers: number;
   followers: number;
-  elapsedSec: number;
   onEnd: () => void;
   /** Safe-area top inset, so the header clears the notch without magic numbers. */
   topInset: number;
@@ -26,20 +25,22 @@ interface LiveHeaderProps {
 }
 
 /**
- * Instagram Live's top chrome: broadcaster identity on the left, live status
- * and audience metrics beneath it, End on the right. Replaces the three
- * separately absolute-positioned counters that used to float at hardcoded
- * offsets.
+ * Instagram Live's top chrome, one row: broadcaster identity on the left, then
+ * LIVE, the viewer count and the close control grouped in the top right.
+ *
+ * There used to be a second row beneath the handle holding those pills plus an
+ * elapsed-time indicator. Both the row and the timer were removed to match the
+ * reference layout; elapsed time still appears on `SessionEndScreen` via
+ * `StatSummaryCard`, so nothing is lost except the live readout.
  *
  * Rendered in both the idle and live states so the avatar and handle don't jump
- * when the broadcast starts — going live adds the status row and the End
- * control in place rather than replacing the header.
+ * when the broadcast starts — going live adds the pills and the close control
+ * in place rather than replacing the header.
  */
 export function LiveHeader({
   isLive,
   viewers,
   followers,
-  elapsedSec,
   onEnd,
   topInset,
   onMeasure,
@@ -72,31 +73,33 @@ export function LiveHeader({
         </View>
 
         {isLive && (
-          <Pressable
-            onPress={onEnd}
-            hitSlop={spacing.sm}
-            accessibilityRole="button"
-            accessibilityLabel="End live video"
-            style={({ pressed }) => [styles.endButton, pressed && styles.pressed]}
-          >
-            <Text style={styles.endLabel} allowFontScaling={false}>
-              End
-            </Text>
-          </Pressable>
+          <>
+            {/* The pills are inert, but a bare View still captures touches and
+                `identityRow` is box-none, so without this wrapper a tap landing
+                on the viewer count would be swallowed instead of falling
+                through to the tap-to-heart layer. */}
+            <View style={styles.statusGroup} pointerEvents="none">
+              <View style={styles.liveBadge}>
+                <Text style={styles.liveLabel} allowFontScaling={false}>
+                  LIVE
+                </Text>
+              </View>
+              <ViewerCounter count={viewers} />
+            </View>
+
+            <Pressable
+              onPress={onEnd}
+              hitSlop={spacing.sm}
+              accessibilityRole="button"
+              // The only thing naming this control once the word "End" is gone.
+              accessibilityLabel="End live video"
+              style={({ pressed }) => [styles.endButton, pressed && styles.pressed]}
+            >
+              <GlyphIcon name="close" size={20} color={colors.textPrimary} />
+            </Pressable>
+          </>
         )}
       </View>
-
-      {isLive && (
-        <View style={styles.statusRow} pointerEvents="none">
-          <View style={styles.liveBadge}>
-            <Text style={styles.liveLabel} allowFontScaling={false}>
-              LIVE
-            </Text>
-          </View>
-          <ViewerCounter count={viewers} />
-          <RecordingIndicator elapsedSec={elapsedSec} />
-        </View>
-      )}
     </View>
   );
 }
@@ -108,7 +111,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: spacing.md,
-    gap: spacing.sm + 2,
   },
   identityRow: {
     flexDirection: 'row',
@@ -124,27 +126,21 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     ...textShadow,
   },
+  /**
+   * Bare glyph, no pill: the reference has an unadorned ✕, and the top `Scrim`
+   * already keeps it legible over a bright frame. `hitSlop` on the Pressable
+   * carries the touch target rather than padding it out to pill size.
+   */
   endButton: {
-    backgroundColor: colors.glass,
-    borderRadius: radii.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.hairline,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm - 1,
-  },
-  endLabel: {
-    ...type.small,
-    color: colors.textPrimary,
+    padding: spacing.xs,
   },
   pressed: {
     opacity: 0.6,
   },
-  statusRow: {
+  statusGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm - 2,
-    // Aligns the badge row under the handle rather than under the avatar.
-    paddingLeft: 38 + spacing.sm + 2,
   },
   liveBadge: {
     backgroundColor: colors.live,

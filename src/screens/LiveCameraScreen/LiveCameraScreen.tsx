@@ -42,13 +42,14 @@ export interface LiveCameraScreenProps {
  * settles.
  */
 const FALLBACK_COMPOSER_HEIGHT = 58;
-const FALLBACK_HEADER_HEIGHT = 92;
+// One row of identity chrome. Was 92 when the header carried a second status
+// row; leaving it there made the comment feed jump down on first paint.
+const FALLBACK_HEADER_HEIGHT = 58;
 
 export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
   const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission();
   const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } = useMicrophonePermission();
   const [cameraPosition, setCameraPosition] = useState<TargetCameraPosition>('front');
-  const [elapsedSec, setElapsedSec] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const cameraRef = useRef<CameraRef>(null);
   const insets = useSafeAreaInsets();
@@ -103,17 +104,10 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
     setCameraPosition((p) => (p === 'front' ? 'back' : 'front'));
   }, []);
 
-  useEffect(() => {
-    if (!isLive) {
-      setElapsedSec(0);
-      return;
-    }
-    const startedAtMs = useSessionStore.getState().startedAtMs ?? Date.now();
-    const interval = setInterval(() => {
-      setElapsedSec(Math.floor((Date.now() - startedAtMs) / 1000));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isLive]);
+  // There was a 1s interval here feeding an elapsed-time pill in the header.
+  // The pill is gone, and with it a setState that re-rendered this whole screen
+  // once per second for the entire broadcast. Duration is still derived from
+  // `startedAtMs` at session end, which is where it's actually displayed.
 
   const handleHeartAt = useCallback(
     (x: number, y: number) => {
@@ -214,7 +208,6 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
           isLive={isLive}
           viewers={currentViewers}
           followers={followers}
-          elapsedSec={elapsedSec}
           onEnd={endLiveSession}
           topInset={insets.top}
           onMeasure={setHeaderHeight}

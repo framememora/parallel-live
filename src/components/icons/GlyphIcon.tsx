@@ -1,5 +1,5 @@
 import React from 'react';
-import { Canvas, Circle, Group, Path, RoundedRect, rect, rrect } from '@shopify/react-native-skia';
+import { Canvas, Circle, Group, Line, Path, RoundedRect, rect, rrect, vec } from '@shopify/react-native-skia';
 import {
   CAMERA_HUMP_PATH,
   EYE_LID_PATH,
@@ -8,7 +8,7 @@ import {
   PAPER_PLANE_PATH,
 } from './iconPaths';
 
-export type IconName = 'heartFilled' | 'paperPlane' | 'eye' | 'cameraFlip';
+export type IconName = 'heartFilled' | 'paperPlane' | 'eye' | 'cameraFlip' | 'close';
 
 interface GlyphIconProps {
   name: IconName;
@@ -106,6 +106,17 @@ function IconBody({ name, color }: { name: IconName; color: string }) {
             strokeCap="round"
             strokeJoin="round"
           />
+        </Group>
+      );
+
+    // Two crossed strokes, inset from the 24-unit box so the cap radius doesn't
+    // ride the edge. Exact by construction — nothing here can be silently wrong
+    // the way an authored arc can.
+    case 'close':
+      return (
+        <Group>
+          <Line p1={vec(6, 6)} p2={vec(18, 18)} color={color} style="stroke" strokeWidth={STROKE} strokeCap="round" />
+          <Line p1={vec(18, 6)} p2={vec(6, 18)} color={color} style="stroke" strokeWidth={STROKE} strokeCap="round" />
         </Group>
       );
   }
