@@ -21,6 +21,9 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 
+# Per-session scheduler lock (holds a live PID, not project state)
+.claude/scheduled_tasks.lock
+
 # debug
 npm-debug.*
 yarn-debug.*

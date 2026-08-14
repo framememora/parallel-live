@@ -1,25 +1,87 @@
 {
   "expo": {
     "name": "parallel-live",
-    "slug": "parallel-live",
+    "slug": "usmannissam1",
+    "owner": "usmannissam1s-team",
     "version": "1.0.0",
+    "scheme": "parallellive",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "bundleIdentifier": "com.parallellive.app",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Used to show your live camera feed while you're live.",
+        "NSMicrophoneUsageDescription": "Used to record audio when you save a clip of your session.",
+        "NSPhotoLibraryAddUsageDescription": "Used to save your session recordings to your camera roll."
+      }
     },
     "android": {
+      "package": "com.parallellive.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
+        "android.permission.POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-media-library",
+        {
+          "photosPermission": false,
+          "savePhotosPermission": "Used to save your session recordings to your camera roll.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
+      [
+        "react-native-nitro-screen-recorder",
+        {
+          "enableCameraPermission": false,
+          "enableMicrophonePermission": true,
+          "microphonePermissionText": "Used to record audio when you save a clip of your session."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "BroadcastExtension",
+                  "bundleIdentifier": "com.parallellive.app.BroadcastExtension",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.parallellive.app.screen-recorder"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "4c535d4d-0078-4c61-acd2-f28674ae6d11"
+      }
     }
   }
 }
