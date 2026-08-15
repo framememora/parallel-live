@@ -25,7 +25,6 @@ import { useSessionStore } from '../../state/sessionStore';
 import { useSettingsStore } from '../../state/settingsStore';
 import { colors, radii, spacing, type } from '../../theme/tokens';
 import { SettingsSheet } from '../SettingsSheet/SettingsSheet';
-import { ActionRail } from './components/ActionRail';
 import { CameraPreview } from './components/CameraPreview';
 import { CommentComposer } from './components/CommentComposer';
 import { CommentFeed } from './components/CommentFeed';
@@ -176,7 +175,7 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
       <View style={styles.permissionContainer}>
         <StatusBar style="light" hidden={false} />
         <View style={styles.permissionIcon}>
-          <GlyphIcon name="cameraFlip" size={32} color={colors.textSecondary} />
+          <GlyphIcon name="camera" size={32} color={colors.textSecondary} />
         </View>
         <Text style={styles.permissionTitle}>{missingText} access needed</Text>
         <Text style={styles.permissionText}>
@@ -311,23 +310,16 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
       )}
 
       {isLive && (
-        <ActionRail
-          onHeart={handleHeartAt}
-          onFlipCamera={flipCamera}
-          bottomOffset={feedBottom + spacing.sm}
-        />
-      )}
-
-      {isLive && (
         <CommentComposer
           onSubmit={addComment}
           onHeart={handleHeartAt}
+          onFlipCamera={flipCamera}
           bottomInset={insets.bottom}
           onMeasure={setComposerHeight}
         />
       )}
 
-      {/* Idle-only: while live the same control lives in the action rail. */}
+      {/* Idle-only: while live the same control sits in the bottom bar. */}
       {status === 'idle' && (
         <Pressable
           style={[styles.flipButton, { top: insets.top + spacing.sm }]}

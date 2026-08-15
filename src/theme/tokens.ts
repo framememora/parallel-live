@@ -33,6 +33,8 @@ export const colors = {
   success: '#30D158',
   warning: '#FF9F0A',
   neutralAction: '#3A3A3C',
+  /** Instagram's badge gold, behind dark text on the "Buy a badge" prompt. */
+  badge: '#F7C325',
 
   /** Scrim endpoints; consumed by Skia LinearGradient, which needs real colors. */
   scrimTransparent: 'rgba(0,0,0,0)',

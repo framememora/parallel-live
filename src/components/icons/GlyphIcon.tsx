@@ -1,14 +1,22 @@
 import React from 'react';
 import { Canvas, Circle, Group, Line, Path, RoundedRect, rect, rrect, vec } from '@shopify/react-native-skia';
 import {
+  getCameraFlipPath,
   CAMERA_HUMP_PATH,
   EYE_LID_PATH,
-  FLIP_ARROWS_PATH,
   HEART_PATH,
   PAPER_PLANE_PATH,
 } from './iconPaths';
 
-export type IconName = 'heartFilled' | 'paperPlane' | 'eye' | 'cameraFlip' | 'close';
+export type IconName =
+  | 'heartFilled'
+  | 'heartOutline'
+  | 'paperPlane'
+  | 'eye'
+  | 'camera'
+  | 'cameraFlip'
+  | 'close'
+  | 'dots';
 
 interface GlyphIconProps {
   name: IconName;
@@ -56,6 +64,30 @@ function IconBody({ name, color }: { name: IconName; color: string }) {
     case 'heartFilled':
       return <Path path={HEART_PATH} color={color} />;
 
+    // Same proven path as the filled heart, just stroked — no second, unverified
+    // heart shape enters the codebase.
+    case 'heartOutline':
+      return (
+        <Path
+          path={HEART_PATH}
+          color={color}
+          style="stroke"
+          strokeWidth={STROKE}
+          strokeJoin="round"
+          strokeCap="round"
+        />
+      );
+
+    /** The "more" affordance inside Instagram's comment field. */
+    case 'dots':
+      return (
+        <Group>
+          <Circle cx={6} cy={12} r={1.6} color={color} />
+          <Circle cx={12} cy={12} r={1.6} color={color} />
+          <Circle cx={18} cy={12} r={1.6} color={color} />
+        </Group>
+      );
+
     case 'paperPlane':
       return (
         <Path
@@ -85,7 +117,11 @@ function IconBody({ name, color }: { name: IconName; color: string }) {
         </Group>
       );
 
-    case 'cameraFlip':
+    /**
+     * A literal camera. Only the permission gate uses this — "Camera access
+     * needed" wants the device, not the switch-camera action below.
+     */
+    case 'camera':
       return (
         <Group>
           <RoundedRect rect={rrect(rect(2, 7, 20, 13), 3, 3)} color={color} style="stroke" strokeWidth={STROKE} />
@@ -98,15 +134,21 @@ function IconBody({ name, color }: { name: IconName; color: string }) {
             strokeJoin="round"
           />
           <Circle cx={12} cy={13.8} r={4.1} color={color} style="stroke" strokeWidth={STROKE} />
-          <Path
-            path={FLIP_ARROWS_PATH}
-            color={color}
-            style="stroke"
-            strokeWidth={STROKE - 0.3}
-            strokeCap="round"
-            strokeJoin="round"
-          />
         </Group>
+      );
+
+    // Two arcs chasing each other with arrowheads — the standard switch-camera
+    // mark. Constructed via `addArc` rather than authored; see `iconPaths.ts`.
+    case 'cameraFlip':
+      return (
+        <Path
+          path={getCameraFlipPath()}
+          color={color}
+          style="stroke"
+          strokeWidth={STROKE}
+          strokeCap="round"
+          strokeJoin="round"
+        />
       );
 
     // Two crossed strokes, inset from the 24-unit box so the cap radius doesn't
