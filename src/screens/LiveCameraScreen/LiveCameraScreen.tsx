@@ -1,5 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import {
+  ActivityIndicator,
+  Linking,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -48,11 +57,21 @@ const FALLBACK_COMPOSER_HEIGHT = 58;
 const FALLBACK_HEADER_HEIGHT = 58;
 
 export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
-  const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission();
-  const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } = useMicrophonePermission();
+  const {
+    hasPermission: hasCameraPermission,
+    canRequestPermission: canRequestCamera,
+    requestPermission: requestCameraPermission,
+  } = useCameraPermission();
+  const {
+    hasPermission: hasMicPermission,
+    canRequestPermission: canRequestMic,
+    requestPermission: requestMicPermission,
+  } = useMicrophonePermission();
   const [cameraPosition, setCameraPosition] = useState<TargetCameraPosition>('front');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const cameraRef = useRef<CameraRef>(null);
+  // Guards the one-shot permission sequence below.
+  const permissionFlowRan = useRef(false);
   // Whether capture actually started, which the `recordSession` setting alone
   // can't tell `endLiveSession`: consent may have been declined, or `start()`
   // may have thrown, and stopping something that never started is not free.
@@ -85,20 +104,36 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
   const feedMaxHeight = Math.max(96, screenHeight - headerHeight - feedBottom - spacing.lg);
 
   useEffect(() => {
-    // Android presents one permission dialog at a time. Firing both requests in
-    // the same tick gets the second one dropped, leaving its native promise
-    // unsettled until the JNI destructor collects it — which surfaces as
-    // "Timeouted: JPromise was destroyed!". Await them in sequence instead.
-    let cancelled = false;
+    // Runs exactly once per mount. It used to depend on the two `hasPermission`
+    // flags, which defeated the sequencing below: granting the camera flipped
+    // its flag mid-flight, re-ran the effect, and fired a *second* microphone
+    // request while the first dialog was still open.
+    if (permissionFlowRan.current) return;
+    permissionFlowRan.current = true;
+
     (async () => {
-      if (!hasCameraPermission) await requestCameraPermission();
-      if (cancelled) return;
-      if (!hasMicPermission) await requestMicPermission();
+      try {
+        // Android presents one permission dialog at a time. Firing both requests
+        // in the same tick gets the second one dropped, leaving its native
+        // promise unsettled until the JNI destructor collects it — which
+        // surfaces as "Timeouted: JPromise was destroyed!". Await them in
+        // sequence instead.
+        //
+        // Gated on `canRequestPermission`, not `!hasPermission`: VisionCamera
+        // only permits a request while the status is 'not-determined'. Asking
+        // for one already 'denied' or 'restricted' is dropped by the OS and
+        // orphans its promise the same way — see the gate below for the only
+        // route out of that state.
+        if (canRequestCamera) await requestCameraPermission();
+        if (canRequestMic) await requestMicPermission();
+      } catch {
+        // `requestPermission` awaits the native call with no catch of its own,
+        // so a rejection escapes as an unhandled promise rejection. The gate
+        // below already renders the un-granted state; nothing here to recover.
+      }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [hasCameraPermission, hasMicPermission, requestCameraPermission, requestMicPermission]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const drainAiComments = useAiCommentEngine(isLive, cameraRef);
 
@@ -125,16 +160,42 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
   );
 
   if (!hasCameraPermission || !hasMicPermission) {
+    const missing = [
+      !hasCameraPermission && 'Camera',
+      !hasMicPermission && 'Microphone',
+    ].filter(Boolean) as string[];
+    const missingText = missing.join(' and ');
+    // A permission that is un-granted *and* no longer requestable is 'denied' or
+    // 'restricted'. VisionCamera only allows a request while 'not-determined',
+    // so there is no dialog left to raise — system Settings is the only route,
+    // and without this the screen waits forever for a grant that can't arrive.
+    const stuck =
+      (!hasCameraPermission && !canRequestCamera) || (!hasMicPermission && !canRequestMic);
+
     return (
       <View style={styles.permissionContainer}>
         <StatusBar style="light" hidden={false} />
         <View style={styles.permissionIcon}>
           <GlyphIcon name="cameraFlip" size={32} color={colors.textSecondary} />
         </View>
-        <Text style={styles.permissionTitle}>Camera access needed</Text>
+        <Text style={styles.permissionTitle}>{missingText} access needed</Text>
         <Text style={styles.permissionText}>
-          Camera and microphone access are required to go live.
+          {stuck
+            ? `Turn ${missingText.toLowerCase()} access on in Settings — once it's been denied, the app isn't allowed to ask again.`
+            : `${missingText} access ${missing.length === 1 ? 'is' : 'are'} required to go live.`}
         </Text>
+        {stuck && (
+          <Pressable
+            // No listener needed on the way back: usePermission re-reads status
+            // on AppState 'active', so granting in Settings clears this gate.
+            onPress={() => Linking.openSettings()}
+            accessibilityRole="button"
+            accessibilityLabel="Open settings"
+            style={({ pressed }) => [styles.permissionButton, pressed && styles.pressedChrome]}
+          >
+            <Text style={styles.permissionButtonLabel}>Open Settings</Text>
+          </Pressable>
+        )}
       </View>
     );
   }
@@ -325,6 +386,22 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 21,
+  },
+  permissionButton: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.hairline,
+  },
+  permissionButtonLabel: {
+    ...type.label,
+    color: colors.textPrimary,
+  },
+  pressedChrome: {
+    opacity: 0.6,
   },
   flipButton: {
     position: 'absolute',
