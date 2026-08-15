@@ -7,6 +7,12 @@ export interface SessionSummary {
   totalHearts: number;
   durationSec: number;
   finalVideoPath?: string;
+  /**
+   * Whether the user asked for a recording at all. Without this a missing
+   * `finalVideoPath` is ambiguous, and `SessionEndScreen` would report a
+   * failure for a video that was never meant to exist.
+   */
+  recordingRequested: boolean;
 }
 
 export interface SessionState {

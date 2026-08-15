@@ -13,6 +13,7 @@ import { Scrim } from '../../components/Scrim';
 import { createMilestoneTracker } from '../../engines/milestoneTracker';
 import { RecordingService } from '../../services/recording/RecordingService';
 import { useSessionStore } from '../../state/sessionStore';
+import { useSettingsStore } from '../../state/settingsStore';
 import { colors, radii, spacing, type } from '../../theme/tokens';
 import { SettingsSheet } from '../SettingsSheet/SettingsSheet';
 import { ActionRail } from './components/ActionRail';
@@ -52,10 +53,16 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
   const [cameraPosition, setCameraPosition] = useState<TargetCameraPosition>('front');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const cameraRef = useRef<CameraRef>(null);
+  // Whether capture actually started, which the `recordSession` setting alone
+  // can't tell `endLiveSession`: consent may have been declined, or `start()`
+  // may have thrown, and stopping something that never started is not free.
+  const recordingStartedRef = useRef(false);
   const insets = useSafeAreaInsets();
   const { height: screenHeight } = useWindowDimensions();
   const [composerHeight, setComposerHeight] = useState(FALLBACK_COMPOSER_HEIGHT + insets.bottom);
   const [headerHeight, setHeaderHeight] = useState(FALLBACK_HEADER_HEIGHT + insets.top);
+
+  const recordSession = useSettingsStore((s) => s.recordSession);
 
   const status = useSessionStore((s) => s.status);
   const currentViewers = useSessionStore((s) => s.currentViewers);
@@ -146,11 +153,16 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
     // a stale value from whatever render was current at that moment.
     const state = useSessionStore.getState();
     const durationSec = state.startedAtMs ? (Date.now() - state.startedAtMs) / 1000 : 0;
+    recordingStartedRef.current = false;
     endSession({
       peakViewers: state.peakViewers,
       totalHearts: state.totalHearts,
       durationSec,
       finalVideoPath: undefined,
+      // Hardcoded rather than read from the setting: this listener only exists
+      // because recording started, so a recording was definitely requested, and
+      // a literal can't go stale the way a captured setting could.
+      recordingRequested: true,
     });
     onSessionEnd?.();
   };
@@ -160,7 +172,12 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
     const startedAtMs = useSessionStore.getState().startedAtMs ?? Date.now();
     const durationSec = (Date.now() - startedAtMs) / 1000;
 
-    const raw = await RecordingService.stop().catch(() => undefined);
+    // Only stop what actually started — recording is opt-in, and consent can be
+    // declined even when it's on.
+    const raw = recordingStartedRef.current
+      ? await RecordingService.stop().catch(() => undefined)
+      : undefined;
+    recordingStartedRef.current = false;
     // The recording is saved as captured. There used to be a re-encode pass here
     // that composited a "SIMULATED" overlay into the video track; it was removed
     // deliberately, and skipping it also drops a full re-encode from the end of
@@ -172,20 +189,35 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
       totalHearts: useSessionStore.getState().totalHearts,
       durationSec,
       finalVideoPath,
+      recordingRequested: recordSession,
     });
     onSessionEnd?.();
   };
 
   const startLiveSession = async () => {
-    if (Platform.OS === 'android') {
-      const consented = await RecordingService.prepareAndroidConsent();
-      if (!consented) return; // user declined the MediaProjection consent dialog
+    recordingStartedRef.current = false;
+
+    // Nothing about the simulation needs screen capture — the engines are pure
+    // JS over a camera preview. Capture exists only to produce a saveable clip,
+    // so when the user hasn't asked for one we skip consent and the native call
+    // entirely and go live instantly.
+    if (recordSession) {
+      // This used to `return` on a declined dialog or a failed start, leaving
+      // the button looking broken. That was the watermark era, when saving an
+      // un-watermarked file was forbidden; that policy is gone, and the summary
+      // now carries `recordingRequested` so the end screen can say plainly that
+      // the recording failed. Go live either way.
+      const consented = Platform.OS !== 'android' || (await RecordingService.prepareAndroidConsent());
+      if (consented) {
+        try {
+          await RecordingService.start({ onUnexpectedStop: handleUnexpectedStop });
+          recordingStartedRef.current = true;
+        } catch {
+          recordingStartedRef.current = false;
+        }
+      }
     }
-    try {
-      await RecordingService.start({ onUnexpectedStop: handleUnexpectedStop });
-    } catch {
-      return; // couldn't start recording; stay idle rather than "go live" without one
-    }
+
     startSession();
   };
 

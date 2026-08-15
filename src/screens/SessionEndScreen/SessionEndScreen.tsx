@@ -38,7 +38,12 @@ export function SessionEndScreen({ onDone }: SessionEndScreenProps) {
         <Text style={styles.noSummary}>No session data available.</Text>
       )}
 
-      {!summary?.finalVideoPath && (
+      {/* Only a *failed* recording is worth warning about. With recording off —
+          the default — there was never going to be a video, so reporting it as a
+          failure would be a lie, and offering a save button would be a dead
+          control. Both are gated on `recordingRequested` rather than on the
+          absence of a path, which alone can't tell the two cases apart. */}
+      {summary?.recordingRequested && !summary.finalVideoPath && (
         <View style={styles.warningBox}>
           <Text style={styles.warning}>
             We couldn’t finish processing a video for this session, so there’s nothing to save.
@@ -47,7 +52,7 @@ export function SessionEndScreen({ onDone }: SessionEndScreenProps) {
       )}
 
       <View style={styles.actions}>
-        <SaveToRollButton videoPath={summary?.finalVideoPath} />
+        {summary?.recordingRequested && <SaveToRollButton videoPath={summary.finalVideoPath} />}
         <Pressable
           style={({ pressed }) => [styles.discardButton, pressed && styles.pressed]}
           onPress={handleDone}

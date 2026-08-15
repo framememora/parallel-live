@@ -32,11 +32,13 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
 
   const handle = useSettingsStore((s) => s.handle);
   const startingFollowers = useSettingsStore((s) => s.startingFollowers);
+  const recordSession = useSettingsStore((s) => s.recordSession);
   const aiCommentsEnabled = useSettingsStore((s) => s.aiCommentsEnabled);
   const apiKey = useSettingsStore((s) => s.apiKey);
   const visionModel = useSettingsStore((s) => s.visionModel);
   const setHandle = useSettingsStore((s) => s.setHandle);
   const setStartingFollowers = useSettingsStore((s) => s.setStartingFollowers);
+  const setRecordSession = useSettingsStore((s) => s.setRecordSession);
   const setAiCommentsEnabled = useSettingsStore((s) => s.setAiCommentsEnabled);
   const setApiKey = useSettingsStore((s) => s.setApiKey);
   const setVisionModel = useSettingsStore((s) => s.setVisionModel);
@@ -114,6 +116,26 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
                 accessibilityLabel="Starting followers"
               />
             </Field>
+
+            <View style={styles.divider} />
+
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleText}>
+                <Text style={styles.fieldLabel}>Save a video of this session</Text>
+                <Text style={styles.hint}>
+                  Records the screen so the saved clip shows the comments and hearts over your
+                  camera. Android asks for screen-capture permission every time you go live and
+                  won&apos;t let the app remember your answer — leave this off and it never asks.
+                </Text>
+              </View>
+              <Switch
+                value={recordSession}
+                onValueChange={setRecordSession}
+                trackColor={{ false: colors.surfaceElevated, true: colors.heart }}
+                thumbColor={colors.textPrimary}
+                accessibilityLabel="Save a video of this session"
+              />
+            </View>
 
             <View style={styles.divider} />
 

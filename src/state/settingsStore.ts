@@ -52,6 +52,16 @@ export interface SettingsState {
   /** Follower count the session starts from, instead of 0. */
   startingFollowers: number;
   /**
+   * Opt-in for screen-recording the session so it can be saved as a clip.
+   *
+   * Off by default. Recording is the only reason the app needs Android's
+   * MediaProjection consent, and Android deliberately re-asks every single
+   * session — there is no way to suppress that. The simulation itself needs no
+   * capture at all, so making this opt-in means going live is instant and
+   * dialog-free unless you actually want a video out of it.
+   */
+  recordSession: boolean;
+  /**
    * Opt-in for sending camera frames to the Claude API for context-aware
    * comments. Off by default — this uploads pictures of the user and their
    * surroundings to a third party.
@@ -70,6 +80,7 @@ export interface SettingsState {
 interface SettingsStore extends SettingsState {
   setHandle: (handle: string) => void;
   setStartingFollowers: (count: number) => void;
+  setRecordSession: (enabled: boolean) => void;
   setAiCommentsEnabled: (enabled: boolean) => void;
   setApiKey: (key: string) => void;
   setVisionModel: (model: VisionModelId) => void;
@@ -80,6 +91,7 @@ export const DEFAULT_HANDLE = 'you';
 const initialState: SettingsState = {
   handle: DEFAULT_HANDLE,
   startingFollowers: 0,
+  recordSession: false,
   aiCommentsEnabled: false,
   apiKey: '',
   visionModel: DEFAULT_VISION_MODEL,
@@ -93,6 +105,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   setHandle: (handle) => set({ handle: handle.trim().toLowerCase() || DEFAULT_HANDLE }),
 
   setStartingFollowers: (count) => set({ startingFollowers: Math.max(0, Math.floor(count) || 0) }),
+
+  setRecordSession: (recordSession) => set({ recordSession }),
 
   setAiCommentsEnabled: (aiCommentsEnabled) => set({ aiCommentsEnabled }),
 
