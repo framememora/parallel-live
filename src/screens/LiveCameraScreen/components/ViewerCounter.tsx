@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { GlyphIcon } from '../../../components/icons/GlyphIcon';
-import { colors, radii, spacing, type } from '../../../theme/tokens';
+import { PILL_HEIGHT, colors, radii, spacing, type } from '../../../theme/tokens';
 import { formatCompactNumber } from '../../../utils/format';
 
 interface ViewerCounterProps {
@@ -40,6 +40,9 @@ export function ViewerCounter({ count }: ViewerCounterProps) {
 
 const styles = StyleSheet.create({
   pill: {
+    // Fixed height rather than vertical padding, so this pill and the LIVE
+    // badge beside it are the same size by construction. See `PILL_HEIGHT`.
+    height: PILL_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs + 1,
@@ -49,7 +52,6 @@ const styles = StyleSheet.create({
     borderColor: colors.hairline,
     paddingLeft: spacing.sm,
     paddingRight: spacing.md - 2,
-    paddingVertical: spacing.xs + 1,
   },
   text: {
     ...type.small,

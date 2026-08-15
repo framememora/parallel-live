@@ -61,6 +61,18 @@ export const radii = {
 } as const;
 
 /**
+ * Height of every status pill in the live header — the LIVE badge, the viewer
+ * count, and the ✕ glyph beside them.
+ *
+ * It lives here rather than in `LiveHeader` because `ViewerCounter` needs it
+ * too, and `LiveHeader` already imports `ViewerCounter`; exporting it from
+ * there would close an import cycle. Each used to size itself from its own font
+ * and padding, which drifted to 19px against 24px and made the row read as
+ * ragged — the point of a single constant is that they cannot drift again.
+ */
+export const PILL_HEIGHT = 22;
+
+/**
  * `fontWeight` is typed as the literal string union React Native expects, so
  * spreading a token straight into a StyleSheet type-checks under `strict`.
  */

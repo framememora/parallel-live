@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Avatar } from '../../../components/Avatar';
 import { GlyphIcon } from '../../../components/icons/GlyphIcon';
 import { useSettingsStore } from '../../../state/settingsStore';
-import { colors, radii, spacing, textShadow, type } from '../../../theme/tokens';
+import { PILL_HEIGHT, colors, radii, spacing, textShadow, type } from '../../../theme/tokens';
 import { FollowerCounter } from './FollowerCounter';
 import { ViewerCounter } from './ViewerCounter';
 
@@ -28,6 +28,11 @@ interface LiveHeaderProps {
  * Instagram Live's top chrome, one row: broadcaster identity on the left, then
  * LIVE, the viewer count and the close control grouped in the top right.
  *
+ * Those three share one `rightGroup` wrapper, one gap and one height
+ * (`PILL_HEIGHT`). Before that they were sized independently — 19px, 24px and a
+ * 28px padded box, at two different gaps — which centred them on a common line
+ * but still read as ragged.
+ *
  * There used to be a second row beneath the handle holding those pills plus an
  * elapsed-time indicator. Both the row and the timer were removed to match the
  * reference layout; elapsed time still appears on `SessionEndScreen` via
@@ -47,6 +52,7 @@ export function LiveHeader({
   onOpenSettings,
 }: LiveHeaderProps) {
   const handle = useSettingsStore((s) => s.handle);
+  const avatarUri = useSettingsStore((s) => s.avatarUri);
 
   return (
     <View
@@ -63,7 +69,7 @@ export function LiveHeader({
           accessibilityLabel="Open settings"
           style={({ pressed }) => pressed && styles.pressed}
         >
-          <Avatar name={handle} size={38} ring />
+          <Avatar name={handle} uri={avatarUri} size={38} ring />
         </Pressable>
         <View style={styles.identityText} pointerEvents="none">
           <Text style={styles.handle} allowFontScaling={false} numberOfLines={1}>
@@ -73,12 +79,12 @@ export function LiveHeader({
         </View>
 
         {isLive && (
-          <>
+          <View style={styles.rightGroup} pointerEvents="box-none">
             {/* The pills are inert, but a bare View still captures touches and
-                `identityRow` is box-none, so without this wrapper a tap landing
-                on the viewer count would be swallowed instead of falling
-                through to the tap-to-heart layer. */}
-            <View style={styles.statusGroup} pointerEvents="none">
+                the rows above are box-none, so without this wrapper a tap
+                landing on the viewer count would be swallowed instead of
+                falling through to the tap-to-heart layer. */}
+            <View style={styles.pills} pointerEvents="none">
               <View style={styles.liveBadge}>
                 <Text style={styles.liveLabel} allowFontScaling={false}>
                   LIVE
@@ -87,17 +93,27 @@ export function LiveHeader({
               <ViewerCounter count={viewers} />
             </View>
 
+            {/* Bare glyph, no pill and no padding: the reference has an
+                unadorned ✕, the top `Scrim` keeps it legible over a bright
+                frame, and `hitSlop` carries the touch target. It used to also
+                carry `padding: spacing.xs`, which held the glyph 4px off the
+                row's right margin while the pills beside it sat flush. */}
             <Pressable
               onPress={onEnd}
               hitSlop={spacing.sm}
               accessibilityRole="button"
               // The only thing naming this control once the word "End" is gone.
               accessibilityLabel="End live video"
-              style={({ pressed }) => [styles.endButton, pressed && styles.pressed]}
+              style={({ pressed }) => pressed && styles.pressed}
             >
-              <GlyphIcon name="close" size={20} color={colors.textPrimary} />
+              {/* Sized optically, not to `PILL_HEIGHT`. The ✕'s strokes span
+                  half its box, so a 22px glyph would put 11px of thin line
+                  beside a solid 22px badge and read as the runt of the row.
+                  The row's height is set by the 38px avatar either way, so a
+                  larger glyph costs no layout. */}
+              <GlyphIcon name="close" size={26} color={colors.textPrimary} />
             </Pressable>
-          </>
+          </View>
         )}
       </View>
     </View>
@@ -126,27 +142,42 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     ...textShadow,
   },
-  /**
-   * Bare glyph, no pill: the reference has an unadorned ✕, and the top `Scrim`
-   * already keeps it legible over a bright frame. `hitSlop` on the Pressable
-   * carries the touch target rather than padding it out to pill size.
-   */
-  endButton: {
-    padding: spacing.xs,
-  },
   pressed: {
     opacity: 0.6,
   },
-  statusGroup: {
+  /**
+   * Every item in the top right, spaced by one value. Previously the two pills
+   * were grouped at a 6px gap while the ✕ inherited `identityRow`'s 10px, so
+   * the three items sat at two different rhythms.
+   */
+  rightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm - 2,
+    gap: spacing.sm,
+    // The handle already shrinks first (`identityText` is flex: 1), but a
+    // 30-character handle should never get to squash or wrap this group.
+    flexShrink: 0,
   },
+  pills: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  /**
+   * Height comes from `PILL_HEIGHT`, not from padding, so it cannot drift out
+   * of step with the viewer pill the way it had: 11px text + 3px padding gave
+   * 19px against the viewer pill's 24px.
+   *
+   * The radius stays a rounded rect against the viewer pill's capsule. That
+   * contrast is Instagram's own; matching the heights is the fix, not
+   * flattening both to one shape.
+   */
   liveBadge: {
+    height: PILL_HEIGHT,
+    justifyContent: 'center',
     backgroundColor: colors.live,
     borderRadius: radii.sm - 4,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs - 1,
   },
   liveLabel: {
     ...type.caption,

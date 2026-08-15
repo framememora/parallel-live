@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
 import { VISION_MODELS, useSettingsStore, type VisionModelId } from '../../state/settingsStore';
 import { colors, radii, spacing, type } from '../../theme/tokens';
+import { PhotoPickerSheet } from './PhotoPickerSheet';
 
 interface SettingsSheetProps {
   visible: boolean;
@@ -31,6 +32,7 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
   const insets = useSafeAreaInsets();
 
   const handle = useSettingsStore((s) => s.handle);
+  const avatarUri = useSettingsStore((s) => s.avatarUri);
   const startingFollowers = useSettingsStore((s) => s.startingFollowers);
   const recordSession = useSettingsStore((s) => s.recordSession);
   const aiCommentsEnabled = useSettingsStore((s) => s.aiCommentsEnabled);
@@ -48,6 +50,7 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
   // the keyboard).
   const [handleDraft, setHandleDraft] = useState(handle);
   const [followersDraft, setFollowersDraft] = useState(String(startingFollowers));
+  const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
 
   const commitHandle = () => setHandle(handleDraft);
   const commitFollowers = () => {
@@ -78,13 +81,19 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.identityRow}>
-              <Avatar name={handleDraft || handle} size={52} ring />
+            <Pressable
+              onPress={() => setPhotoPickerOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Change profile photo"
+              style={({ pressed }) => [styles.identityRow, pressed && styles.pressed]}
+            >
+              <Avatar name={handleDraft || handle} uri={avatarUri} size={52} ring />
               <View style={styles.identityText}>
                 <Text style={styles.title}>Your profile</Text>
                 <Text style={styles.subtitle}>How you appear on the broadcast</Text>
               </View>
-            </View>
+              <Text style={styles.changeLabel}>{avatarUri ? 'Change' : 'Add photo'}</Text>
+            </Pressable>
 
             <Field label="Handle">
               <TextInput
@@ -205,6 +214,11 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
             <Text style={styles.doneLabel}>Done</Text>
           </Pressable>
         </KeyboardAvoidingView>
+
+        {/* Nested inside this modal rather than hoisted to the screen: it is
+            only ever opened from the row above, and a Modal renders into its
+            own container regardless of where it sits in the tree. */}
+        <PhotoPickerSheet visible={photoPickerOpen} onClose={() => setPhotoPickerOpen(false)} />
       </View>
     </Modal>
   );
@@ -314,6 +328,10 @@ const styles = StyleSheet.create({
   subtitle: {
     ...type.body,
     color: colors.textSecondary,
+  },
+  changeLabel: {
+    ...type.label,
+    color: colors.heart,
   },
   field: {
     gap: spacing.sm,

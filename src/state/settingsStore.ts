@@ -49,6 +49,15 @@ export const DEFAULT_VISION_MODEL: VisionModelId = 'claude-haiku-4-5';
 export interface SettingsState {
   /** Broadcaster handle shown in the header and used for the user's own comments. */
   handle: string;
+  /**
+   * Profile picture, as a `content://` or `file://` URI into the device's media
+   * store. `null` falls back to the letter disc derived from the handle.
+   *
+   * Only the reference is held here — the photo itself is never copied into the
+   * app. So like every other setting this resets on restart (see below), but
+   * the picture is untouched on disk; only the choice is forgotten.
+   */
+  avatarUri: string | null;
   /** Follower count the session starts from, instead of 0. */
   startingFollowers: number;
   /**
@@ -79,6 +88,7 @@ export interface SettingsState {
 
 interface SettingsStore extends SettingsState {
   setHandle: (handle: string) => void;
+  setAvatarUri: (uri: string | null) => void;
   setStartingFollowers: (count: number) => void;
   setRecordSession: (enabled: boolean) => void;
   setAiCommentsEnabled: (enabled: boolean) => void;
@@ -90,6 +100,7 @@ export const DEFAULT_HANDLE = 'you';
 
 const initialState: SettingsState = {
   handle: DEFAULT_HANDLE,
+  avatarUri: null,
   startingFollowers: 0,
   recordSession: false,
   aiCommentsEnabled: false,
@@ -103,6 +114,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   // Trimmed and lowercased: a handle with spaces or capitals doesn't read as a
   // real social handle in the header.
   setHandle: (handle) => set({ handle: handle.trim().toLowerCase() || DEFAULT_HANDLE }),
+
+  setAvatarUri: (avatarUri) => set({ avatarUri }),
 
   setStartingFollowers: (count) => set({ startingFollowers: Math.max(0, Math.floor(count) || 0) }),
 

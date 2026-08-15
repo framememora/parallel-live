@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Avatar } from '../../../components/Avatar';
 import type { GeneratedComment } from '../../../engines/comments/types';
+import { useSettingsStore } from '../../../state/settingsStore';
 import { colors, spacing, textShadow, type } from '../../../theme/tokens';
 
 interface CommentBubbleProps {
@@ -20,6 +21,9 @@ interface CommentBubbleProps {
  * broadcast overlay rather than a column of chips.
  */
 export function CommentBubble({ comment, depth, total }: CommentBubbleProps) {
+  // Only the broadcaster's own rows get the photo; every simulated commenter
+  // keeps a letter disc, which is part of what makes an own comment stand out.
+  const avatarUri = useSettingsStore((s) => s.avatarUri);
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(10);
 
@@ -40,7 +44,12 @@ export function CommentBubble({ comment, depth, total }: CommentBubbleProps) {
 
   return (
     <Animated.View style={[styles.row, animatedStyle]}>
-      <Avatar name={comment.author} size={26} ring={comment.isOwn} />
+      <Avatar
+        name={comment.author}
+        uri={comment.isOwn ? avatarUri : undefined}
+        size={26}
+        ring={comment.isOwn}
+      />
       <View style={styles.body}>
         <Text style={styles.handle} allowFontScaling={false} numberOfLines={1}>
           {comment.author}
