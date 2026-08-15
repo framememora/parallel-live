@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { openMenu } from 'expo-dev-client';
 import { Avatar } from '../../../components/Avatar';
 import { GlyphIcon } from '../../../components/icons/GlyphIcon';
 import { useSettingsStore } from '../../../state/settingsStore';
@@ -54,6 +55,21 @@ export function LiveHeader({
   const handle = useSettingsStore((s) => s.handle);
   const avatarUri = useSettingsStore((s) => s.avatarUri);
 
+  /**
+   * Long-press opens Expo's dev menu — the same thing the draggable floating
+   * button in the corner does.
+   *
+   * That button is not this app's: it ships inside `expo-dev-menu`'s Android
+   * `debug` source set, so it exists only in development builds and no app code
+   * can remove it. Giving the menu a home on the avatar means the button can be
+   * switched off (dev menu → floating action button) without losing the way in.
+   *
+   * `__DEV__` guards the *call*, not the import. `ExpoDevMenu` is resolved with
+   * `requireOptionalNativeModule`, so importing it in a release build is safe
+   * and yields null — but calling into that null would throw.
+   */
+  const openDevMenu = __DEV__ ? () => openMenu() : undefined;
+
   return (
     <View
       style={[styles.root, { paddingTop: topInset + spacing.sm }]}
@@ -63,10 +79,17 @@ export function LiveHeader({
       <View style={styles.identityRow} pointerEvents="box-none">
         <Pressable
           onPress={onOpenSettings}
-          disabled={!onOpenSettings}
+          onLongPress={openDevMenu}
+          // Stays enabled while live if there's a long-press to serve: tapping
+          // is still inert then (`onOpenSettings` is withheld so a stray tap
+          // can't pull a modal over the recording), but a deliberate long-press
+          // is not a stray tap. In release `openDevMenu` is undefined and this
+          // collapses back to exactly the old condition.
+          disabled={!onOpenSettings && !openDevMenu}
           hitSlop={spacing.sm}
           accessibilityRole="button"
           accessibilityLabel="Open settings"
+          accessibilityHint={openDevMenu ? 'Long press to open the Expo dev menu' : undefined}
           style={({ pressed }) => pressed && styles.pressed}
         >
           <Avatar name={handle} uri={avatarUri} size={38} ring />
