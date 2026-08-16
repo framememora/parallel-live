@@ -83,6 +83,12 @@
         },
         "projectId": "4c535d4d-0078-4c61-acd2-f28674ae6d11"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/4c535d4d-0078-4c61-acd2-f28674ae6d11"
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
     }
   }
 }
