@@ -59,8 +59,7 @@
           "enableMicrophonePermission": true,
           "microphonePermissionText": "Used to record audio when you save a clip of your session."
         }
-      ],
-      "expo-secure-store"
+      ]
     ],
     "extra": {
       "eas": {

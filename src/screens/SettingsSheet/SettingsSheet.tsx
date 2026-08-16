@@ -35,14 +35,12 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
   const avatarUri = useSettingsStore((s) => s.avatarUri);
   const startingFollowers = useSettingsStore((s) => s.startingFollowers);
   const recordSession = useSettingsStore((s) => s.recordSession);
-  const recordMicAudio = useSettingsStore((s) => s.recordMicAudio);
   const aiCommentsEnabled = useSettingsStore((s) => s.aiCommentsEnabled);
   const apiKey = useSettingsStore((s) => s.apiKey);
   const visionModel = useSettingsStore((s) => s.visionModel);
   const setHandle = useSettingsStore((s) => s.setHandle);
   const setStartingFollowers = useSettingsStore((s) => s.setStartingFollowers);
   const setRecordSession = useSettingsStore((s) => s.setRecordSession);
-  const setRecordMicAudio = useSettingsStore((s) => s.setRecordMicAudio);
   const setAiCommentsEnabled = useSettingsStore((s) => s.setAiCommentsEnabled);
   const setApiKey = useSettingsStore((s) => s.setApiKey);
   const setVisionModel = useSettingsStore((s) => s.setVisionModel);
@@ -52,10 +50,6 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
   // the keyboard).
   const [handleDraft, setHandleDraft] = useState(handle);
   const [followersDraft, setFollowersDraft] = useState(String(startingFollowers));
-  // The key gets a draft for a different reason than the two above: settings are
-  // persisted now, so every store write is a write to the encrypted store. Wired
-  // straight to `onChangeText` that would be one per keystroke.
-  const [apiKeyDraft, setApiKeyDraft] = useState(apiKey);
   const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
 
   const commitHandle = () => setHandle(handleDraft);
@@ -64,12 +58,10 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
     setStartingFollowers(parsed);
     setFollowersDraft(String(Math.max(0, Math.floor(parsed) || 0)));
   };
-  const commitApiKey = () => setApiKey(apiKeyDraft);
 
   const close = () => {
     commitHandle();
     commitFollowers();
-    commitApiKey();
     onClose();
   };
 
@@ -154,31 +146,6 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
               />
             </View>
 
-            {/* Only shown when there is a recording for it to apply to — a mic
-                switch above a recording switch that is off controls nothing. */}
-            {recordSession && (
-              <>
-                <View style={styles.divider} />
-
-                <View style={styles.toggleRow}>
-                  <View style={styles.toggleText}>
-                    <Text style={styles.fieldLabel}>Record microphone audio</Text>
-                    <Text style={styles.hint}>
-                      Captures your voice into the saved clip. This is fixed when the recording
-                      starts — the microphone in the live bar can&apos;t change it mid-broadcast.
-                    </Text>
-                  </View>
-                  <Switch
-                    value={recordMicAudio}
-                    onValueChange={setRecordMicAudio}
-                    trackColor={{ false: colors.surfaceElevated, true: colors.heart }}
-                    thumbColor={colors.textPrimary}
-                    accessibilityLabel="Record microphone audio"
-                  />
-                </View>
-              </>
-            )}
-
             <View style={styles.divider} />
 
             <View style={styles.toggleRow}>
@@ -224,9 +191,8 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
               >
                 <TextInput
                   style={styles.input}
-                  value={apiKeyDraft}
-                  onChangeText={setApiKeyDraft}
-                  onBlur={commitApiKey}
+                  value={apiKey}
+                  onChangeText={setApiKey}
                   placeholder="sk-ant-…"
                   placeholderTextColor={colors.textTertiary}
                   autoCapitalize="none"

@@ -36,32 +36,6 @@ export const PAPER_PLANE_PATH = 'M22 2 2 9.6l8.5 3.9L14 21.5 22 2z M22 2l-11.5 1
 /** Eyelid almond for the viewer-count glyph. Symmetric cubics, no arcs. */
 export const EYE_LID_PATH = 'M1.5 12C4.6 7.4 8.2 5 12 5s7.4 2.4 10.5 7c-3.1 4.6-6.7 7-10.5 7S4.6 16.6 1.5 12z';
 
-/**
- * The effects sparkle: a four-point star with concave sides, plus a smaller one
- * off its shoulder.
- *
- * Filled rather than stroked, unlike most of this set. At the 24px it renders
- * at, a 1.8-unit stroke closes up the concave notches between the points and
- * the shape turns to mush — the fill is what keeps it legible small.
- */
-export const SPARKLE_PATH =
-  'M11 4.5C11.55 9.9 13.6 11.95 19 12.5C13.6 13.05 11.55 15.1 11 20.5C10.45 15.1 8.4 13.05 3 12.5C8.4 11.95 10.45 9.9 11 4.5Z';
-export const SPARKLE_SPARK_PATH =
-  'M18.8 3C18.98 4.5 19.5 5.02 21 5.2C19.5 5.38 18.98 5.9 18.8 7.4C18.62 5.9 18.1 5.38 16.6 5.2C18.1 5.02 18.62 4.5 18.8 3Z';
-
-/**
- * Gift box, minus the lid — that is a `RoundedRect` in `GlyphIcon`. Drawn as an
- * open path rather than a second rect so no line runs through the box's middle.
- */
-export const GIFT_BODY_PATH = 'M4.8 11.4V20.8H19.2V11.4';
-
-/** Two mirrored loops meeting at the ribbon. Cubics only. */
-export const GIFT_BOW_PATH =
-  'M12 7.2C10.5 4.4 8.6 3.6 7.7 4.6C6.8 5.6 8.6 7.2 12 7.2Z M12 7.2C13.5 4.4 15.4 3.6 16.3 4.6C17.2 5.6 15.4 7.2 12 7.2Z';
-
-/** Filter funnel. Straight segments throughout — the safest shape in the set. */
-export const FILTERS_PATH = 'M3.5 5.2H20.5L14 12.8V19.4L10 21V12.8Z';
-
 /** Top bump on the camera body (the viewfinder hump). */
 export const CAMERA_HUMP_PATH = 'M8.7 7.2 10.1 4.8h3.8l1.4 2.4';
 
@@ -140,51 +114,4 @@ let cameraFlipPath: SkPath | undefined;
 export function getCameraFlipPath(): SkPath {
   if (!cameraFlipPath) cameraFlipPath = buildCameraFlipPath();
   return cameraFlipPath;
-}
-
-/* --------------------------------------------------------------------------
- * The microphone stand: the cradle under the capsule, plus the post and foot.
- * The capsule itself is a `RoundedRect` in `GlyphIcon` — only the cradle needs
- * a path, because it is a half-circle, and a half-circle is exactly where an
- * authored `A` command goes wrong. Same `addArc` escape as above.
- * ------------------------------------------------------------------------ */
-
-const CRADLE_RADIUS = 6.5;
-const CRADLE_CENTER_Y = 11.3;
-/** Where the cradle bottoms out, and so where the post has to start. Derived, not typed in. */
-const POST_TOP = CRADLE_CENTER_Y + CRADLE_RADIUS;
-const POST_BOTTOM = 21;
-const FOOT_HALF_WIDTH = 3.4;
-
-function buildMicrophoneStandPath(): SkPath {
-  const path = Skia.Path.Make();
-
-  // 0° is the cradle's right tip; a +180 sweep carries it under the capsule to
-  // the left tip. `moveTo` after it opens a fresh contour, so the post is not
-  // joined back to the arc by a chord.
-  path.addArc(
-    {
-      x: CENTER - CRADLE_RADIUS,
-      y: CRADLE_CENTER_Y - CRADLE_RADIUS,
-      width: CRADLE_RADIUS * 2,
-      height: CRADLE_RADIUS * 2,
-    },
-    0,
-    180
-  );
-
-  path.moveTo(CENTER, POST_TOP);
-  path.lineTo(CENTER, POST_BOTTOM);
-  path.moveTo(CENTER - FOOT_HALF_WIDTH, POST_BOTTOM);
-  path.lineTo(CENTER + FOOT_HALF_WIDTH, POST_BOTTOM);
-
-  return path;
-}
-
-let microphoneStandPath: SkPath | undefined;
-
-/** Lazy for the same reason as `getCameraFlipPath` — no Skia call at import time. */
-export function getMicrophoneStandPath(): SkPath {
-  if (!microphoneStandPath) microphoneStandPath = buildMicrophoneStandPath();
-  return microphoneStandPath;
 }
