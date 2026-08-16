@@ -39,6 +39,22 @@ export const EYE_LID_PATH = 'M1.5 12C4.6 7.4 8.2 5 12 5s7.4 2.4 10.5 7c-3.1 4.6-
 /** Top bump on the camera body (the viewfinder hump). */
 export const CAMERA_HUMP_PATH = 'M8.7 7.2 10.1 4.8h3.8l1.4 2.4';
 
+/**
+ * The effects sparkle: a four-point star with concave sides, plus a smaller one
+ * off its shoulder.
+ *
+ * Filled where the rest of the rail is stroked. At the size this renders, a
+ * 1.8-unit stroke closes up the concave notches between the points and the
+ * shape turns to mush — the fill is what keeps it legible.
+ */
+export const SPARKLE_PATH =
+  'M11 4.5C11.55 9.9 13.6 11.95 19 12.5C13.6 13.05 11.55 15.1 11 20.5C10.45 15.1 8.4 13.05 3 12.5C8.4 11.95 10.45 9.9 11 4.5Z';
+export const SPARKLE_SPARK_PATH =
+  'M18.8 3C18.98 4.5 19.5 5.02 21 5.2C19.5 5.38 18.98 5.9 18.8 7.4C18.62 5.9 18.1 5.38 16.6 5.2C18.1 5.02 18.62 4.5 18.8 3Z';
+
+/** Flash bolt. Straight segments only — nothing here can be silently wrong. */
+export const FLASH_PATH = 'M13.6 2 5.8 13.2h5L10.4 22l7.8-11.2h-5L13.6 2Z';
+
 /* --------------------------------------------------------------------------
  * The switch-camera mark: two arcs chasing each other, each ending in an
  * arrowhead. Built rather than authored, for the reason in this file's header
@@ -114,4 +130,37 @@ let cameraFlipPath: SkPath | undefined;
 export function getCameraFlipPath(): SkPath {
   if (!cameraFlipPath) cameraFlipPath = buildCameraFlipPath();
   return cameraFlipPath;
+}
+
+/* --------------------------------------------------------------------------
+ * The settings cog's teeth. The two circles it sits on are primitives in
+ * `GlyphIcon`; only the spokes need generating, and they are generated rather
+ * than typed out for the same reason `appendArrowhead` derives its points — so
+ * they stay evenly spaced and attached if a radius is ever retuned.
+ * ------------------------------------------------------------------------ */
+
+const TOOTH_COUNT = 8;
+const TOOTH_INNER = 6;
+const TOOTH_OUTER = 8.4;
+
+function buildSettingsTeethPath(): SkPath {
+  const path = Skia.Path.Make();
+
+  for (let i = 0; i < TOOTH_COUNT; i++) {
+    const rad = ((i * 360) / TOOTH_COUNT) * (Math.PI / 180);
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    path.moveTo(CENTER + TOOTH_INNER * cos, CENTER + TOOTH_INNER * sin);
+    path.lineTo(CENTER + TOOTH_OUTER * cos, CENTER + TOOTH_OUTER * sin);
+  }
+
+  return path;
+}
+
+let settingsTeethPath: SkPath | undefined;
+
+/** Lazy for the same reason as `getCameraFlipPath` — no Skia call at module scope. */
+export function getSettingsTeethPath(): SkPath {
+  if (!settingsTeethPath) settingsTeethPath = buildSettingsTeethPath();
+  return settingsTeethPath;
 }

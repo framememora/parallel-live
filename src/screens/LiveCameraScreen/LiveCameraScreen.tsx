@@ -25,6 +25,7 @@ import { useSessionStore } from '../../state/sessionStore';
 import { useSettingsStore } from '../../state/settingsStore';
 import { colors, radii, spacing, type } from '../../theme/tokens';
 import { SettingsSheet } from '../SettingsSheet/SettingsSheet';
+import { ActionRail } from './components/ActionRail';
 import { CameraPreview } from './components/CameraPreview';
 import { CommentComposer } from './components/CommentComposer';
 import { CommentFeed } from './components/CommentFeed';
@@ -67,6 +68,10 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
     requestPermission: requestMicPermission,
   } = useMicrophonePermission();
   const [cameraPosition, setCameraPosition] = useState<TargetCameraPosition>('front');
+  // The rail's video toggle. Only the preview is affected — a recording in
+  // progress is captured at the OS screen level and keeps rolling, recording
+  // black, which is the honest result of switching the camera off mid-broadcast.
+  const [cameraOn, setCameraOn] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const cameraRef = useRef<CameraRef>(null);
   // Guards the one-shot permission sequence below.
@@ -284,7 +289,7 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
   return (
     <View style={styles.container}>
       <StatusBar hidden />
-      <CameraPreview ref={cameraRef} position={cameraPosition} isActive />
+      <CameraPreview ref={cameraRef} position={cameraPosition} isActive={cameraOn} />
       <Pressable style={StyleSheet.absoluteFill} onPress={handleTap} />
 
       {isLive && <Scrim edge="top" height={headerHeight + spacing.xl} intensity={0.4} />}
@@ -310,10 +315,20 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
       )}
 
       {isLive && (
+        <ActionRail
+          onFlipCamera={flipCamera}
+          cameraOn={cameraOn}
+          onToggleCamera={() => setCameraOn((on) => !on)}
+          // Hung off the measured header with a gap, so the topmost control is
+          // never flush against the ✕ that ends the broadcast.
+          topOffset={headerHeight + spacing.lg}
+        />
+      )}
+
+      {isLive && (
         <CommentComposer
           onSubmit={addComment}
           onHeart={handleHeartAt}
-          onFlipCamera={flipCamera}
           bottomInset={insets.bottom}
           onMeasure={setComposerHeight}
         />

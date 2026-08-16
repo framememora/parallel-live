@@ -2,10 +2,14 @@ import React from 'react';
 import { Canvas, Circle, Group, Line, Path, RoundedRect, rect, rrect, vec } from '@shopify/react-native-skia';
 import {
   getCameraFlipPath,
+  getSettingsTeethPath,
   CAMERA_HUMP_PATH,
   EYE_LID_PATH,
+  FLASH_PATH,
   HEART_PATH,
   PAPER_PLANE_PATH,
+  SPARKLE_PATH,
+  SPARKLE_SPARK_PATH,
 } from './iconPaths';
 
 export type IconName =
@@ -14,9 +18,13 @@ export type IconName =
   | 'paperPlane'
   | 'eye'
   | 'camera'
+  | 'cameraOff'
   | 'cameraFlip'
   | 'close'
-  | 'dots';
+  | 'dots'
+  | 'sparkle'
+  | 'flash'
+  | 'settings';
 
 interface GlyphIconProps {
   name: IconName;
@@ -118,10 +126,15 @@ function IconBody({ name, color }: { name: IconName; color: string }) {
       );
 
     /**
-     * A literal camera. Only the permission gate uses this — "Camera access
-     * needed" wants the device, not the switch-camera action below.
+     * A literal camera, and the same camera struck through.
+     *
+     * One case for both so the body is defined once: `cameraOff` is this exact
+     * geometry plus a slash, and a second copy would be a second thing to keep
+     * in step. The permission gate wants `camera` — the device, not the
+     * switch-camera action below; the rail's video toggle wants `cameraOff`.
      */
     case 'camera':
+    case 'cameraOff':
       return (
         <Group>
           <RoundedRect rect={rrect(rect(2, 7, 20, 13), 3, 3)} color={color} style="stroke" strokeWidth={STROKE} />
@@ -134,6 +147,54 @@ function IconBody({ name, color }: { name: IconName; color: string }) {
             strokeJoin="round"
           />
           <Circle cx={12} cy={13.8} r={4.1} color={color} style="stroke" strokeWidth={STROKE} />
+          {name === 'cameraOff' && (
+            <Line
+              p1={vec(4.5, 4.5)}
+              p2={vec(19.5, 19.5)}
+              color={color}
+              style="stroke"
+              strokeWidth={STROKE}
+              strokeCap="round"
+            />
+          )}
+        </Group>
+      );
+
+    /** Effects. Filled where the rest of the rail is stroked — see `SPARKLE_PATH`. */
+    case 'sparkle':
+      return (
+        <Group>
+          <Path path={SPARKLE_PATH} color={color} />
+          <Path path={SPARKLE_SPARK_PATH} color={color} />
+        </Group>
+      );
+
+    case 'flash':
+      return (
+        <Path
+          path={FLASH_PATH}
+          color={color}
+          style="stroke"
+          strokeWidth={STROKE}
+          strokeCap="round"
+          strokeJoin="round"
+        />
+      );
+
+    // Ring, hub and eight generated spokes. Only the spokes are a path; the two
+    // circles are exact by construction.
+    case 'settings':
+      return (
+        <Group>
+          <Circle cx={12} cy={12} r={6} color={color} style="stroke" strokeWidth={STROKE} />
+          <Circle cx={12} cy={12} r={2.2} color={color} style="stroke" strokeWidth={STROKE} />
+          <Path
+            path={getSettingsTeethPath()}
+            color={color}
+            style="stroke"
+            strokeWidth={STROKE}
+            strokeCap="round"
+          />
         </Group>
       );
 

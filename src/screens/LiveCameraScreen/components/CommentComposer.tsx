@@ -11,8 +11,6 @@ interface CommentComposerProps {
   onSubmit: (comment: GeneratedComment) => void;
   /** Spawns hearts. Real control, not chrome. */
   onHeart: (x: number, y: number) => void;
-  /** Swaps front/back camera. Moved here when the floating right-hand rail was removed. */
-  onFlipCamera: () => void;
   bottomInset: number;
   /** Reports the block's real height so the screen can stack chrome above it. */
   onMeasure?: (height: number) => void;
@@ -34,18 +32,15 @@ const MAX_LENGTH = 120;
  * on camera, which defeats the point.
  *
  * The `?` and the outer paper plane are the exception — they are inert chrome.
- * `ActionRail` was once deleted for carrying a control that did nothing, and
- * that stance is being set aside here knowingly: the row reads as Instagram Live
- * or it doesn't, and those two glyphs are most of the difference. Everything
- * else in this row does what it appears to do.
+ * That stance is taken knowingly: the row reads as Instagram Live or it doesn't,
+ * and those two glyphs are most of the difference. Everything else in this row
+ * does what it appears to do.
+ *
+ * The camera flip used to sit here, having moved in when the right-hand rail was
+ * deleted. It has gone back to the rail, which is where Instagram keeps it —
+ * leaving it in both places would have put two flip buttons on screen at once.
  */
-export function CommentComposer({
-  onSubmit,
-  onHeart,
-  onFlipCamera,
-  bottomInset,
-  onMeasure,
-}: CommentComposerProps) {
+export function CommentComposer({ onSubmit, onHeart, bottomInset, onMeasure }: CommentComposerProps) {
   const [text, setText] = useState('');
   const inputRef = useRef<TextInput>(null);
   const keyboardOffset = useSharedValue(0);
@@ -158,15 +153,6 @@ export function CommentComposer({
           <GlyphIcon name="heartOutline" size={26} color={colors.textPrimary} />
         </Pressable>
 
-        <Pressable
-          onPress={onFlipCamera}
-          hitSlop={spacing.sm}
-          accessibilityRole="button"
-          accessibilityLabel="Flip camera"
-          style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-        >
-          <GlyphIcon name="cameraFlip" size={24} color={colors.textPrimary} />
-        </Pressable>
       </View>
     </Animated.View>
   );
