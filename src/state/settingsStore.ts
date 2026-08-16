@@ -71,6 +71,16 @@ export interface SettingsState {
    */
   recordSession: boolean;
   /**
+   * Whether a saved recording captures microphone audio. Only meaningful when
+   * `recordSession` is on.
+   *
+   * It is a setting rather than a control on the live screen because the
+   * recorder takes `enableMic` when capture *starts* and exposes no mute call
+   * at all — there is nothing to toggle mid-broadcast. The microphone glyph in
+   * the composer row is chrome for exactly that reason.
+   */
+  recordMicAudio: boolean;
+  /**
    * Opt-in for sending camera frames to the Claude API for context-aware
    * comments. Off by default — this uploads pictures of the user and their
    * surroundings to a third party.
@@ -91,6 +101,7 @@ interface SettingsStore extends SettingsState {
   setAvatarUri: (uri: string | null) => void;
   setStartingFollowers: (count: number) => void;
   setRecordSession: (enabled: boolean) => void;
+  setRecordMicAudio: (enabled: boolean) => void;
   setAiCommentsEnabled: (enabled: boolean) => void;
   setApiKey: (key: string) => void;
   setVisionModel: (model: VisionModelId) => void;
@@ -103,6 +114,7 @@ const initialState: SettingsState = {
   avatarUri: null,
   startingFollowers: 0,
   recordSession: false,
+  recordMicAudio: true,
   aiCommentsEnabled: false,
   apiKey: '',
   visionModel: DEFAULT_VISION_MODEL,
@@ -120,6 +132,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   setStartingFollowers: (count) => set({ startingFollowers: Math.max(0, Math.floor(count) || 0) }),
 
   setRecordSession: (recordSession) => set({ recordSession }),
+
+  setRecordMicAudio: (recordMicAudio) => set({ recordMicAudio }),
 
   setAiCommentsEnabled: (aiCommentsEnabled) => set({ aiCommentsEnabled }),
 

@@ -275,7 +275,13 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
       const consented = Platform.OS !== 'android' || (await RecordingService.prepareAndroidConsent());
       if (consented) {
         try {
-          await RecordingService.start({ onUnexpectedStop: handleUnexpectedStop });
+          // Read at start, the only moment it can be applied: the recorder takes
+          // `enableMic` when capture begins and offers no mute call afterwards.
+          // It defaulted to true and was never passed until now.
+          await RecordingService.start({
+            enableMic: useSettingsStore.getState().recordMicAudio,
+            onUnexpectedStop: handleUnexpectedStop,
+          });
           recordingStartedRef.current = true;
         } catch {
           recordingStartedRef.current = false;

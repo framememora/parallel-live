@@ -2,10 +2,13 @@ import React from 'react';
 import { Canvas, Circle, Group, Line, Path, RoundedRect, rect, rrect, vec } from '@shopify/react-native-skia';
 import {
   getCameraFlipPath,
+  getMicrophoneStandPath,
   getSettingsTeethPath,
   CAMERA_HUMP_PATH,
   EYE_LID_PATH,
   FLASH_PATH,
+  GIFT_BODY_PATH,
+  GIFT_BOW_PATH,
   HEART_PATH,
   PAPER_PLANE_PATH,
   SPARKLE_PATH,
@@ -24,7 +27,9 @@ export type IconName =
   | 'dots'
   | 'sparkle'
   | 'flash'
-  | 'settings';
+  | 'settings'
+  | 'gift'
+  | 'microphone';
 
 interface GlyphIconProps {
   name: IconName;
@@ -179,6 +184,58 @@ function IconBody({ name, color }: { name: IconName; color: string }) {
           strokeCap="round"
           strokeJoin="round"
         />
+      );
+
+    /** Badges. The composer already carries a "Buy a badge" strip above it. */
+    case 'gift':
+      return (
+        <Group>
+          <RoundedRect
+            rect={rrect(rect(3, 7.2, 18, 4.2), 1.2, 1.2)}
+            color={color}
+            style="stroke"
+            strokeWidth={STROKE}
+          />
+          <Path
+            path={GIFT_BODY_PATH}
+            color={color}
+            style="stroke"
+            strokeWidth={STROKE}
+            strokeJoin="round"
+            strokeCap="round"
+          />
+          <Line p1={vec(12, 7.2)} p2={vec(12, 20.8)} color={color} style="stroke" strokeWidth={STROKE} />
+          <Path
+            path={GIFT_BOW_PATH}
+            color={color}
+            style="stroke"
+            strokeWidth={STROKE}
+            strokeJoin="round"
+            strokeCap="round"
+          />
+        </Group>
+      );
+
+    // Capsule as a primitive; only the cradle needs a path, and it is built with
+    // `addArc` rather than authored — see `iconPaths.ts`.
+    case 'microphone':
+      return (
+        <Group>
+          <RoundedRect
+            rect={rrect(rect(9, 2.5, 6, 11), 3, 3)}
+            color={color}
+            style="stroke"
+            strokeWidth={STROKE}
+          />
+          <Path
+            path={getMicrophoneStandPath()}
+            color={color}
+            style="stroke"
+            strokeWidth={STROKE}
+            strokeCap="round"
+            strokeJoin="round"
+          />
+        </Group>
       );
 
     // Ring, hub and eight generated spokes. Only the spokes are a path; the two

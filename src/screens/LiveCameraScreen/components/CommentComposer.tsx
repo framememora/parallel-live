@@ -140,6 +140,9 @@ export function CommentComposer({ onSubmit, onHeart, bottomInset, onMeasure }: C
             <View style={styles.iconButton} pointerEvents="none">
               <GlyphIcon name="paperPlane" size={24} color={colors.textPrimary} />
             </View>
+            <View style={styles.iconButton} pointerEvents="none">
+              <GlyphIcon name="gift" size={24} color={colors.textPrimary} />
+            </View>
           </>
         )}
 
@@ -153,6 +156,15 @@ export function CommentComposer({ onSubmit, onHeart, bottomInset, onMeasure }: C
           <GlyphIcon name="heartOutline" size={26} color={colors.textPrimary} />
         </Pressable>
 
+        {/* Chrome, and it has to be: the recorder fixes `enableMic` when capture
+            starts and exposes no mute call anywhere in its native interface, so
+            there is nothing a tap here could change mid-broadcast. The control
+            that does work is the "Record microphone audio" switch in Settings. */}
+        {!canSend && (
+          <View style={styles.iconButton} pointerEvents="none">
+            <GlyphIcon name="microphone" size={24} color={colors.textPrimary} />
+          </View>
+        )}
       </View>
     </Animated.View>
   );
@@ -171,7 +183,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    // Tighter than the `md` this row carried at three icons. Five glyphs plus
+    // five gaps eat 166 of a 360dp width at `md`, squeezing the field under
+    // 150pt; at `sm` it keeps ~170pt and the icons still read as separate.
+    gap: spacing.sm,
   },
   questionButton: {
     width: 30,

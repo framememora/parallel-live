@@ -55,6 +55,16 @@ export const SPARKLE_SPARK_PATH =
 /** Flash bolt. Straight segments only — nothing here can be silently wrong. */
 export const FLASH_PATH = 'M13.6 2 5.8 13.2h5L10.4 22l7.8-11.2h-5L13.6 2Z';
 
+/**
+ * Gift box, minus the lid — that is a `RoundedRect` in `GlyphIcon`. Drawn as an
+ * open path rather than a second rect so no line runs through the box's middle.
+ */
+export const GIFT_BODY_PATH = 'M4.8 11.4V20.8H19.2V11.4';
+
+/** Two mirrored loops meeting at the ribbon. Cubics only, no arcs. */
+export const GIFT_BOW_PATH =
+  'M12 7.2C10.5 4.4 8.6 3.6 7.7 4.6C6.8 5.6 8.6 7.2 12 7.2Z M12 7.2C13.5 4.4 15.4 3.6 16.3 4.6C17.2 5.6 15.4 7.2 12 7.2Z';
+
 /* --------------------------------------------------------------------------
  * The switch-camera mark: two arcs chasing each other, each ending in an
  * arrowhead. Built rather than authored, for the reason in this file's header
@@ -130,6 +140,53 @@ let cameraFlipPath: SkPath | undefined;
 export function getCameraFlipPath(): SkPath {
   if (!cameraFlipPath) cameraFlipPath = buildCameraFlipPath();
   return cameraFlipPath;
+}
+
+/* --------------------------------------------------------------------------
+ * The microphone stand: the cradle under the capsule, plus the post and foot.
+ * The capsule is a `RoundedRect` in `GlyphIcon`; only the cradle needs a path,
+ * because it is a half-circle, and a half-circle is exactly where an authored
+ * `A` command goes wrong. Same `addArc` escape as the camera-flip mark.
+ * ------------------------------------------------------------------------ */
+
+const CRADLE_RADIUS = 6.5;
+const CRADLE_CENTER_Y = 11.3;
+/** Where the cradle bottoms out, so where the post starts. Derived, not typed in. */
+const POST_TOP = CRADLE_CENTER_Y + CRADLE_RADIUS;
+const POST_BOTTOM = 21;
+const FOOT_HALF_WIDTH = 3.4;
+
+function buildMicrophoneStandPath(): SkPath {
+  const path = Skia.Path.Make();
+
+  // 0° is the cradle's right tip; a +180 sweep carries it under the capsule to
+  // the left tip. `moveTo` after it opens a fresh contour, so the post is not
+  // joined back to the arc by a chord.
+  path.addArc(
+    {
+      x: CENTER - CRADLE_RADIUS,
+      y: CRADLE_CENTER_Y - CRADLE_RADIUS,
+      width: CRADLE_RADIUS * 2,
+      height: CRADLE_RADIUS * 2,
+    },
+    0,
+    180
+  );
+
+  path.moveTo(CENTER, POST_TOP);
+  path.lineTo(CENTER, POST_BOTTOM);
+  path.moveTo(CENTER - FOOT_HALF_WIDTH, POST_BOTTOM);
+  path.lineTo(CENTER + FOOT_HALF_WIDTH, POST_BOTTOM);
+
+  return path;
+}
+
+let microphoneStandPath: SkPath | undefined;
+
+/** Lazy for the same reason as `getCameraFlipPath` — no Skia call at module scope. */
+export function getMicrophoneStandPath(): SkPath {
+  if (!microphoneStandPath) microphoneStandPath = buildMicrophoneStandPath();
+  return microphoneStandPath;
 }
 
 /* --------------------------------------------------------------------------
