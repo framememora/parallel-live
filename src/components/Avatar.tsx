@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { Canvas, Circle, SweepGradient, vec } from '@shopify/react-native-skia';
 import { avatarColorFor, initialFor } from '../utils/avatar';
@@ -15,7 +15,8 @@ interface AvatarProps {
    *
    * Only the broadcaster ever has one; simulated commenters keep their letter
    * avatars, which is also what makes an own comment visually distinct in the
-   * feed. Falls back to the letter whenever this is absent.
+   * feed. Falls back to the letter whenever this is absent — or whenever it
+   * fails to load, see below.
    */
   uri?: string | null;
 }
@@ -28,6 +29,16 @@ export function Avatar({ name, size = 24, ring = false, uri }: AvatarProps) {
   const inner = ring ? size - (RING_WIDTH + RING_GAP) * 2 : size;
   const discShape = { width: inner, height: inner, borderRadius: inner / 2 };
 
+  // Holds the URI that failed rather than a bare boolean, so a new `uri` clears
+  // the failure by comparison alone — no effect, and no stale flag left behind
+  // when the user picks a different photo.
+  //
+  // This matters because `avatarUri` is persisted: the reference outlives the
+  // session that chose it, and the photo behind it can be deleted, or fall out
+  // of Android's "selected photos" grant. Without this the disc renders empty.
+  const [failedUri, setFailedUri] = useState<string | null>(null);
+  const showPhoto = !!uri && failedUri !== uri;
+
   return (
     <View style={[styles.root, { width: size, height: size }]}>
       {ring && (
@@ -39,11 +50,17 @@ export function Avatar({ name, size = 24, ring = false, uri }: AvatarProps) {
           </Circle>
         </Canvas>
       )}
-      {uri ? (
+      {showPhoto ? (
         // `cover` on a circular box *is* the crop. That's what makes shipping
         // without a cropping UI acceptable: a portrait photo is centred and
         // filled rather than letterboxed, whatever its aspect ratio.
-        <Image source={{ uri }} style={discShape} resizeMode="cover" accessibilityIgnoresInvertColors />
+        <Image
+          source={{ uri }}
+          style={discShape}
+          resizeMode="cover"
+          accessibilityIgnoresInvertColors
+          onError={() => setFailedUri(uri)}
+        />
       ) : (
         <View style={[styles.disc, discShape, { backgroundColor: avatarColorFor(name) }]}>
           <Text style={[styles.initial, { fontSize: inner * 0.46 }]} allowFontScaling={false}>
