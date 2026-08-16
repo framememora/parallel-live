@@ -52,6 +52,10 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
   // the keyboard).
   const [handleDraft, setHandleDraft] = useState(handle);
   const [followersDraft, setFollowersDraft] = useState(String(startingFollowers));
+  // The key gets a draft for a different reason than the two above: settings are
+  // persisted now, so every store write is a write to the encrypted store. Wired
+  // straight to `onChangeText` that would be one per keystroke.
+  const [apiKeyDraft, setApiKeyDraft] = useState(apiKey);
   const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
 
   const commitHandle = () => setHandle(handleDraft);
@@ -60,10 +64,12 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
     setStartingFollowers(parsed);
     setFollowersDraft(String(Math.max(0, Math.floor(parsed) || 0)));
   };
+  const commitApiKey = () => setApiKey(apiKeyDraft);
 
   const close = () => {
     commitHandle();
     commitFollowers();
+    commitApiKey();
     onClose();
   };
 
@@ -219,8 +225,9 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
               >
                 <TextInput
                   style={styles.input}
-                  value={apiKey}
-                  onChangeText={setApiKey}
+                  value={apiKeyDraft}
+                  onChangeText={setApiKeyDraft}
+                  onBlur={commitApiKey}
                   placeholder="sk-ant-…"
                   placeholderTextColor={colors.textTertiary}
                   autoCapitalize="none"
