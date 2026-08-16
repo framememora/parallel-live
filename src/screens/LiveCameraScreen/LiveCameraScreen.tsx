@@ -25,6 +25,7 @@ import { useSessionStore } from '../../state/sessionStore';
 import { useSettingsStore } from '../../state/settingsStore';
 import { colors, radii, spacing, type } from '../../theme/tokens';
 import { SettingsSheet } from '../SettingsSheet/SettingsSheet';
+import { ActionRail } from './components/ActionRail';
 import { CameraPreview } from './components/CameraPreview';
 import { CommentComposer } from './components/CommentComposer';
 import { CommentFeed } from './components/CommentFeed';
@@ -270,7 +271,13 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
       const consented = Platform.OS !== 'android' || (await RecordingService.prepareAndroidConsent());
       if (consented) {
         try {
-          await RecordingService.start({ onUnexpectedStop: handleUnexpectedStop });
+          // Read at start, which is the only moment it can be applied: the
+          // recorder takes `enableMic` when capture begins and offers no mute
+          // call afterwards.
+          await RecordingService.start({
+            enableMic: useSettingsStore.getState().recordMicAudio,
+            onUnexpectedStop: handleUnexpectedStop,
+          });
           recordingStartedRef.current = true;
         } catch {
           recordingStartedRef.current = false;
@@ -310,10 +317,18 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
       )}
 
       {isLive && (
-        <CommentComposer
-          onSubmit={addComment}
+        <ActionRail
           onHeart={handleHeartAt}
           onFlipCamera={flipCamera}
+          // Sits directly on top of the measured composer, so the rail rides up
+          // with the badge strip rather than overlapping it.
+          bottomOffset={feedBottom}
+        />
+      )}
+
+      {isLive && (
+        <CommentComposer
+          onSubmit={addComment}
           bottomInset={insets.bottom}
           onMeasure={setComposerHeight}
         />

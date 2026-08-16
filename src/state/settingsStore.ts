@@ -82,6 +82,16 @@ export interface SettingsState {
    */
   recordSession: boolean;
   /**
+   * Whether a saved recording captures microphone audio. Only meaningful when
+   * `recordSession` is on.
+   *
+   * It lives in Settings rather than as a control on the live screen because
+   * the recorder takes `enableMic` when a recording *starts* and exposes no
+   * mute call at all — there is nothing to toggle mid-broadcast. The microphone
+   * glyph in the composer row is chrome for exactly that reason.
+   */
+  recordMicAudio: boolean;
+  /**
    * Opt-in for sending camera frames to the Claude API for context-aware
    * comments. Off by default — this uploads pictures of the user and their
    * surroundings to a third party.
@@ -102,6 +112,7 @@ interface SettingsStore extends SettingsState {
   setAvatarUri: (uri: string | null) => void;
   setStartingFollowers: (count: number) => void;
   setRecordSession: (enabled: boolean) => void;
+  setRecordMicAudio: (enabled: boolean) => void;
   setAiCommentsEnabled: (enabled: boolean) => void;
   setApiKey: (key: string) => void;
   setVisionModel: (model: VisionModelId) => void;
@@ -114,6 +125,7 @@ const initialState: SettingsState = {
   avatarUri: null,
   startingFollowers: 0,
   recordSession: false,
+  recordMicAudio: true,
   aiCommentsEnabled: false,
   apiKey: '',
   visionModel: DEFAULT_VISION_MODEL,
@@ -171,6 +183,7 @@ function sanitize(persisted: unknown): Partial<SettingsState> {
     out.startingFollowers = Math.max(0, Math.floor(p.startingFollowers));
   }
   if (typeof p.recordSession === 'boolean') out.recordSession = p.recordSession;
+  if (typeof p.recordMicAudio === 'boolean') out.recordMicAudio = p.recordMicAudio;
   if (typeof p.aiCommentsEnabled === 'boolean') out.aiCommentsEnabled = p.aiCommentsEnabled;
   if (typeof p.apiKey === 'string') out.apiKey = p.apiKey.trim();
   // `resolveVisionModel` already falls back for an unknown id, but dropping it
@@ -198,6 +211,8 @@ export const useSettingsStore = create<SettingsStore>()(
 
       setRecordSession: (recordSession) => set({ recordSession }),
 
+      setRecordMicAudio: (recordMicAudio) => set({ recordMicAudio }),
+
       setAiCommentsEnabled: (aiCommentsEnabled) => set({ aiCommentsEnabled }),
 
       setApiKey: (apiKey) => set({ apiKey: apiKey.trim() }),
@@ -215,6 +230,7 @@ export const useSettingsStore = create<SettingsStore>()(
         avatarUri: s.avatarUri,
         startingFollowers: s.startingFollowers,
         recordSession: s.recordSession,
+        recordMicAudio: s.recordMicAudio,
         aiCommentsEnabled: s.aiCommentsEnabled,
         apiKey: s.apiKey,
         visionModel: s.visionModel,

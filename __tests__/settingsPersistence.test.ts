@@ -84,6 +84,7 @@ describe('settings persistence', () => {
       'apiKey',
       'avatarUri',
       'handle',
+      'recordMicAudio',
       'recordSession',
       'startingFollowers',
       'visionModel',
@@ -107,6 +108,10 @@ describe('settings persistence', () => {
         handle: 'nova',
         startingFollowers: -40,
         recordSession: 'yes',
+        // Not a boolean, so it must not survive — and its default is `true`,
+        // which makes this the one field where a silent pass-through would be
+        // invisible in the common case.
+        recordMicAudio: 'off',
         visionModel: 'claude-from-an-older-build',
         somethingRemovedLastVersion: true,
       })
@@ -116,8 +121,17 @@ describe('settings persistence', () => {
     expect(state.handle).toBe('nova');
     expect(state.startingFollowers).toBe(0);
     expect(state.recordSession).toBe(false);
+    expect(state.recordMicAudio).toBe(true);
     expect(state.visionModel).toBe(DEFAULT_VISION_MODEL);
     expect(state).not.toHaveProperty('somethingRemovedLastVersion');
+  });
+
+  it('round-trips the microphone setting', () => {
+    const { useSettingsStore } = loadStore(stored({ recordSession: true, recordMicAudio: false }));
+
+    const state = useSettingsStore.getState();
+    expect(state.recordSession).toBe(true);
+    expect(state.recordMicAudio).toBe(false);
   });
 
   it('keeps defaults when the store cannot be read at all', () => {

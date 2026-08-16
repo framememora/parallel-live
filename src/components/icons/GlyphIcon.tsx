@@ -2,10 +2,16 @@ import React from 'react';
 import { Canvas, Circle, Group, Line, Path, RoundedRect, rect, rrect, vec } from '@shopify/react-native-skia';
 import {
   getCameraFlipPath,
+  getMicrophoneStandPath,
   CAMERA_HUMP_PATH,
   EYE_LID_PATH,
+  FILTERS_PATH,
+  GIFT_BODY_PATH,
+  GIFT_BOW_PATH,
   HEART_PATH,
   PAPER_PLANE_PATH,
+  SPARKLE_PATH,
+  SPARKLE_SPARK_PATH,
 } from './iconPaths';
 
 export type IconName =
@@ -16,7 +22,11 @@ export type IconName =
   | 'camera'
   | 'cameraFlip'
   | 'close'
-  | 'dots';
+  | 'dots'
+  | 'sparkle'
+  | 'gift'
+  | 'filters'
+  | 'microphone';
 
 interface GlyphIconProps {
   name: IconName;
@@ -149,6 +159,81 @@ function IconBody({ name, color }: { name: IconName; color: string }) {
           strokeCap="round"
           strokeJoin="round"
         />
+      );
+
+    /**
+     * Effects. The only filled icon in the composer row — see `SPARKLE_PATH`
+     * for why a stroke collapses at this size.
+     */
+    case 'sparkle':
+      return (
+        <Group>
+          <Path path={SPARKLE_PATH} color={color} />
+          <Path path={SPARKLE_SPARK_PATH} color={color} />
+        </Group>
+      );
+
+    case 'gift':
+      return (
+        <Group>
+          <RoundedRect
+            rect={rrect(rect(3, 7.2, 18, 4.2), 1.2, 1.2)}
+            color={color}
+            style="stroke"
+            strokeWidth={STROKE}
+          />
+          <Path
+            path={GIFT_BODY_PATH}
+            color={color}
+            style="stroke"
+            strokeWidth={STROKE}
+            strokeJoin="round"
+            strokeCap="round"
+          />
+          <Line p1={vec(12, 7.2)} p2={vec(12, 20.8)} color={color} style="stroke" strokeWidth={STROKE} />
+          <Path
+            path={GIFT_BOW_PATH}
+            color={color}
+            style="stroke"
+            strokeWidth={STROKE}
+            strokeJoin="round"
+            strokeCap="round"
+          />
+        </Group>
+      );
+
+    case 'filters':
+      return (
+        <Path
+          path={FILTERS_PATH}
+          color={color}
+          style="stroke"
+          strokeWidth={STROKE}
+          strokeJoin="round"
+          strokeCap="round"
+        />
+      );
+
+    // Capsule as a primitive; only the cradle needs a path, and it is built with
+    // `addArc` rather than authored — see `iconPaths.ts`.
+    case 'microphone':
+      return (
+        <Group>
+          <RoundedRect
+            rect={rrect(rect(9, 2.5, 6, 11), 3, 3)}
+            color={color}
+            style="stroke"
+            strokeWidth={STROKE}
+          />
+          <Path
+            path={getMicrophoneStandPath()}
+            color={color}
+            style="stroke"
+            strokeWidth={STROKE}
+            strokeCap="round"
+            strokeJoin="round"
+          />
+        </Group>
       );
 
     // Two crossed strokes, inset from the 24-unit box so the cap radius doesn't

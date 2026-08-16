@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { GlyphIcon } from '../../../components/icons/GlyphIcon';
+import { GlyphIcon, type IconName } from '../../../components/icons/GlyphIcon';
 import type { GeneratedComment } from '../../../engines/comments/types';
 import { useSettingsStore } from '../../../state/settingsStore';
 import { colors, radii, spacing, type } from '../../../theme/tokens';
@@ -9,14 +9,19 @@ import { BadgePromptRow } from './BadgePromptRow';
 
 interface CommentComposerProps {
   onSubmit: (comment: GeneratedComment) => void;
-  /** Spawns hearts. Real control, not chrome. */
-  onHeart: (x: number, y: number) => void;
-  /** Swaps front/back camera. Moved here when the floating right-hand rail was removed. */
-  onFlipCamera: () => void;
   bottomInset: number;
   /** Reports the block's real height so the screen can stack chrome above it. */
   onMeasure?: (height: number) => void;
 }
+
+/**
+ * The five glyphs to the right of the comment field, in reference order.
+ *
+ * All inert. They are rendered from one list rather than five near-identical
+ * blocks so the row's spacing cannot drift between them, and so adding or
+ * dropping one is an edit in a single place.
+ */
+const ROW_ICONS: readonly IconName[] = ['sparkle', 'paperPlane', 'gift', 'filters', 'microphone'];
 
 const MAX_LENGTH = 120;
 
@@ -33,19 +38,13 @@ const MAX_LENGTH = 120;
  * the feed and lands in the recording. A non-typable input would be visibly dead
  * on camera, which defeats the point.
  *
- * The `?` and the outer paper plane are the exception — they are inert chrome.
- * `ActionRail` was once deleted for carrying a control that did nothing, and
- * that stance is being set aside here knowingly: the row reads as Instagram Live
- * or it doesn't, and those two glyphs are most of the difference. Everything
- * else in this row does what it appears to do.
+ * The five glyphs beside the field are the exception — they are inert chrome.
+ * That stance is taken knowingly: the row reads as Instagram Live or it doesn't,
+ * and those glyphs are most of the difference. The controls that genuinely do
+ * something — the heart and the camera flip — are not among them; they live in
+ * `ActionRail`, so that nothing in this row pretends to be a button.
  */
-export function CommentComposer({
-  onSubmit,
-  onHeart,
-  onFlipCamera,
-  bottomInset,
-  onMeasure,
-}: CommentComposerProps) {
+export function CommentComposer({ onSubmit, bottomInset, onMeasure }: CommentComposerProps) {
   const [text, setText] = useState('');
   const inputRef = useRef<TextInput>(null);
   const keyboardOffset = useSharedValue(0);
@@ -132,41 +131,16 @@ export function CommentComposer({
           )}
         </Pressable>
 
-        {/* Inert chrome, hidden while typing so the send plane above is never on
-            screen beside a second, non-functional one. No accessibilityRole —
-            nothing here should announce itself as a button. */}
-        {!canSend && (
-          <>
-            <View style={styles.questionButton} pointerEvents="none">
-              <Text style={styles.questionMark} allowFontScaling={false}>
-                ?
-              </Text>
+        {/* Inert chrome, hidden while typing: the field grows to take the space
+            and the send plane inside it is then the only glyph on the row, so it
+            can't be confused with a second, non-functional one. No
+            accessibilityRole — nothing here should announce itself as a button. */}
+        {!canSend &&
+          ROW_ICONS.map((icon) => (
+            <View key={icon} style={styles.iconButton} pointerEvents="none">
+              <GlyphIcon name={icon} size={24} color={colors.textPrimary} />
             </View>
-            <View style={styles.iconButton} pointerEvents="none">
-              <GlyphIcon name="paperPlane" size={24} color={colors.textPrimary} />
-            </View>
-          </>
-        )}
-
-        <Pressable
-          onPress={(evt) => onHeart(evt.nativeEvent.pageX, evt.nativeEvent.pageY)}
-          hitSlop={spacing.sm}
-          accessibilityRole="button"
-          accessibilityLabel="Send a heart"
-          style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-        >
-          <GlyphIcon name="heartOutline" size={26} color={colors.textPrimary} />
-        </Pressable>
-
-        <Pressable
-          onPress={onFlipCamera}
-          hitSlop={spacing.sm}
-          accessibilityRole="button"
-          accessibilityLabel="Flip camera"
-          style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-        >
-          <GlyphIcon name="cameraFlip" size={24} color={colors.textPrimary} />
-        </Pressable>
+          ))}
       </View>
     </Animated.View>
   );
@@ -185,22 +159,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-  },
-  questionButton: {
-    width: 30,
-    height: 30,
-    borderRadius: radii.sm,
-    borderWidth: 1.6,
-    borderColor: colors.textPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  questionMark: {
-    ...type.label,
-    fontSize: 16,
-    lineHeight: 19,
-    color: colors.textPrimary,
+    // Tighter than the `md` this row used to carry. Five glyphs plus five gaps
+    // eat 180 of a 360dp width at `md`, which squeezes the field to about 156pt;
+    // at `sm` the field keeps 176pt and the icons still read as separate.
+    gap: spacing.sm,
   },
   field: {
     flex: 1,
