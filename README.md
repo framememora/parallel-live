@@ -61,9 +61,15 @@ follower count, whether to screen-record the session, whether that recording
 captures microphone audio, and the AI comment options.
 
 These persist across restarts in a single `expo-secure-store` key. That matters
-most for the API key: there is no `.env` in this repo and the `preview` build
-inlines no key, so the Settings field is the only place one can come from, and it
-is stored in the Keystore-backed store rather than in the bundle.
+most for the API key: the Settings field is the only place one can come from, and
+it is held in the Keystore-backed store rather than in the bundle.
+
+That is enforced rather than merely conventional. An `EXPO_PUBLIC_ANTHROPIC_API_KEY`
+fallback used to back the field and was removed, because Metro inlines every
+`EXPO_PUBLIC_*` variable into the JS bundle in cleartext at build time — so a
+build made on a machine that happened to have it exported would have shipped a
+live key inside an APK that anyone can unpack. Setting that variable now does
+nothing.
 
 ## AI comments
 
@@ -94,8 +100,36 @@ dropped field in `partialize` would quietly stop persisting a setting.
 
 ## Status
 
-Personal project, not shipped. Known gaps before it could be: OTA updates
-(`npx eas update`) aren't code-signed, so trust is anchored to the EAS account
-and CDN rather than a certificate pinned in the app — worth enabling before any
-wider distribution; there is no privacy policy for the camera upload path; and
-iOS is unfinished.
+Personal project, not shipped. Known gaps before it could be: there is no privacy
+policy for the camera upload path, which becomes mandatory before distribution;
+iOS is unfinished; and OTA updates aren't code-signed, covered below.
+
+### OTA updates are not code-signed
+
+`npx eas update` pushes JavaScript to installed builds with trust anchored to the
+EAS account and CDN rather than a certificate pinned in the app. An account
+compromise means arbitrary code onto every install, against permissions the user
+has already granted to the camera and microphone.
+
+This is unfixed **by decision, not oversight**: EAS Update code signing requires
+an EAS Production or Enterprise plan, and enabling it also costs a new native
+build and a device reinstall. That isn't proportionate for a personal build that
+only ever reaches one phone. It becomes necessary the moment this goes wider.
+
+If that day comes, three things are non-obvious enough to be worth writing down:
+
+- **`.gitignore` has a bare `*.pem`**, which would silently exclude
+  `certs/certificate.pem`. That file has to be committed — EAS Build reads it at
+  prebuild time — so it needs a `!certs/certificate.pem` negation or the build
+  fails with `File not found at 'updates.codeSigningCertificate' path`. Only the
+  private key stays out of the repo.
+- **Order matters, and getting it wrong fails silently.** An already-installed
+  build has no certificate in its manifest, so it ignores signatures entirely
+  rather than rejecting them. Meanwhile adding the certificate to `app.json`
+  changes the `fingerprint` runtime version, so a signed update publishes
+  successfully and reaches nothing. Configure, rebuild, reinstall, *then* update.
+  Once a signed build is out, every later update must be signed or it is refused.
+- **`eas update` needs `--private-key-path` passed explicitly, every time.** The
+  flag's own help text claims it defaults to a key beside the certificate; the
+  CLI implements no such default and throws instead. There is no `eas.json` field
+  for it, so it belongs in a `package.json` script rather than config.

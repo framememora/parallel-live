@@ -221,7 +221,7 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
             {aiCommentsEnabled && (
               <Field
                 label="Anthropic API key"
-                hint="Leave blank to use EXPO_PUBLIC_ANTHROPIC_API_KEY from your environment. Either way the key ends up readable inside the app bundle — use a key you can rotate, and don't ship this build to anyone else."
+                hint="Stored encrypted on this device and sent only to api.anthropic.com. It is never written into the app bundle — but anyone holding the phone can reach it, so use a key you can rotate and don't hand this build to anyone else."
               >
                 <TextInput
                   style={styles.input}

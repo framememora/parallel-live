@@ -46,13 +46,19 @@ export const DEFAULT_VISION_MODEL: VisionModelId = 'claude-haiku-4-5';
  * These **persist across restarts**, in a single JSON blob under one
  * `expo-secure-store` key. One store rather than a keychain for the API key and
  * AsyncStorage for the rest: that split costs a second native module and buys
- * nothing here, since the whole blob is a few hundred bytes — well inside the
- * ~2KB ceiling the platform historically enforces.
+ * nothing here, since the whole blob is a few hundred bytes.
  *
- * The tradeoff worth naming: the API key now sits **at rest** rather than dying
- * with the process. On Android that means the Keystore-encrypted store, which
- * is strictly better than the `EXPO_PUBLIC_ANTHROPIC_API_KEY` alternative
- * (cleartext, inlined into the bundle) — but it is a change, not a free win.
+ * Keeping it small is still worth doing, though not for the reason this comment
+ * used to give: `expo-secure-store` enforces no size limit of its own, and the
+ * ~2KB figure was an iOS-only historical quirk that never applied to this
+ * Android-only app. The docs' actual warning is that large payloads can be
+ * rejected by the underlying platform with a native error, so a small blob
+ * avoids a class of failure rather than clearing a specific ceiling.
+ *
+ * The tradeoff worth naming: the API key sits **at rest** rather than dying with
+ * the process. On Android that means the Keystore-encrypted store — the safest
+ * place available to an app with no server, but still on a device someone can
+ * hold, which is why the key should be one you can rotate.
  */
 export interface SettingsState {
   /** Broadcaster handle shown in the header and used for the user's own comments. */
@@ -98,9 +104,11 @@ export interface SettingsState {
    */
   aiCommentsEnabled: boolean;
   /**
-   * Runtime override for the API key. Falls back to
-   * `EXPO_PUBLIC_ANTHROPIC_API_KEY`, which Metro inlines into the bundle in
-   * cleartext — fine for a personal dev build, not safe for distribution.
+   * The Anthropic API key, entered in Settings and held in the encrypted store.
+   *
+   * This is the only source — see `resolveApiKey` for why the environment
+   * variable that used to back it was removed. Empty means the AI comment path
+   * is unavailable and the template bank runs the session instead.
    */
   apiKey: string;
   /** Which model generates the camera-aware comments. */
@@ -240,11 +248,18 @@ export const useSettingsStore = create<SettingsStore>()(
   )
 );
 
-/** The key actually used for requests: runtime override first, then the build-time env var. */
+/**
+ * The key actually used for requests. The Settings field is the only source.
+ *
+ * There used to be an `EXPO_PUBLIC_ANTHROPIC_API_KEY` fallback here. It was
+ * removed rather than merely discouraged: Metro inlines every `EXPO_PUBLIC_*`
+ * variable into the JS bundle in cleartext at build time, so a build made on a
+ * machine that happened to have it exported would ship a live key inside an APK
+ * that anyone can unpack. The fallback made that a build-environment accident
+ * rather than a deliberate act, which is the wrong way round for a credential.
+ */
 export function resolveApiKey(): string {
-  const runtime = useSettingsStore.getState().apiKey;
-  if (runtime) return runtime;
-  return process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? '';
+  return useSettingsStore.getState().apiKey;
 }
 
 /** The selected model plus the capability flags the request shape depends on. */
