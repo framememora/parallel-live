@@ -94,6 +94,8 @@ dropped field in `partialize` would quietly stop persisting a setting.
 
 ## Status
 
-Personal project, not shipped. Known gaps before it could be: the Android
-permission list asks for more media access than the app uses, there is no privacy
-policy for the camera upload path, and iOS is unfinished.
+Personal project, not shipped. Known gaps before it could be: OTA updates
+(`npx eas update`) aren't code-signed, so trust is anchored to the EAS account
+and CDN rather than a certificate pinned in the app — worth enabling before any
+wider distribution; there is no privacy policy for the camera upload path; and
+iOS is unfinished.
