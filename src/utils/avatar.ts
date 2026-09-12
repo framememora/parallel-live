@@ -1,12 +1,14 @@
 /**
- * Deterministic avatars for simulated commenters. There are no avatar images
- * anywhere in the app and the authors are generated handles from
- * `engines/comments/slotPools.ts`, so each one gets a colored circle with its
- * first letter.
+ * Deterministic look for simulated commenters. The authors are generated
+ * handles from `engines/comments/slotPools.ts`, not real accounts, so there is
+ * no photo behind any of them — `remoteAvatar.ts` derives a portrait URL from
+ * this same hash and `illustratedAvatar.ts` draws the face shown beneath it
+ * until it loads (or instead of it, offline). This letter disc stays the
+ * broadcaster's own placeholder, before they set a photo.
  *
  * Deliberately *not* random: the same handle must produce the same avatar every
  * time it appears in a session, otherwise a viewer re-appearing in the feed
- * would change color mid-recording and give the simulation away.
+ * would change look mid-recording and give the simulation away.
  */
 
 /** Muted, saturated hues that all read against white text over a camera feed. */
@@ -24,7 +26,7 @@ const AVATAR_COLORS = [
 ] as const;
 
 /** FNV-1a, 32-bit. Stable across runs, unlike anything seeded from `Math.random`. */
-function hashString(value: string): number {
+export function hashString(value: string): number {
   let hash = 0x811c9dc5;
   for (let i = 0; i < value.length; i++) {
     hash ^= value.charCodeAt(i);

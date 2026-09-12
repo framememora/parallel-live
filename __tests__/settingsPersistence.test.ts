@@ -11,9 +11,13 @@ jest.mock('expo-secure-store', () => ({
 const mockGetItem = SecureStore.getItem as jest.Mock;
 const mockSetItemAsync = SecureStore.setItemAsync as jest.Mock;
 
-/** The envelope `persist` writes: the partialized state plus its schema version. */
-function stored(state: Record<string, unknown>) {
-  return JSON.stringify({ state, version: 1 });
+/**
+ * The envelope `persist` writes: the partialized state plus its schema version.
+ * Defaults to the pre-migration version, since that is what every blob written
+ * by a shipped build so far actually carries.
+ */
+function stored(state: Record<string, unknown>, version = 1) {
+  return JSON.stringify({ state, version });
 }
 
 /**
@@ -83,7 +87,7 @@ describe('settings persistence', () => {
     expect(key).toBe('parallel-live.settings');
 
     const written = JSON.parse(value) as { state: Record<string, unknown>; version: number };
-    expect(written.version).toBe(1);
+    expect(written.version).toBe(2);
     expect(Object.keys(written.state).sort()).toEqual([
       'aiCommentsEnabled',
       'apiKey',
@@ -124,6 +128,33 @@ describe('settings persistence', () => {
     expect(state.recordSession).toBe(false);
     expect(state.visionModel).toBe(DEFAULT_VISION_MODEL);
     expect(state).not.toHaveProperty('somethingRemovedLastVersion');
+  });
+
+  it('lifts a v1 stored 0 to the new starting-follower default', () => {
+    // Every install from before v2 has a stored 0, which `merge` would
+    // otherwise keep seating over the default and leave the header at "0".
+    const { useSettingsStore, DEFAULT_STARTING_FOLLOWERS } = loadStore(
+      stored({ handle: 'nova', startingFollowers: 0 })
+    );
+
+    const state = useSettingsStore.getState();
+    expect(state.startingFollowers).toBe(DEFAULT_STARTING_FOLLOWERS);
+    // The rest of the blob still comes through the migration untouched.
+    expect(state.handle).toBe('nova');
+  });
+
+  it('leaves a deliberate non-zero starting-follower count alone', () => {
+    const { useSettingsStore } = loadStore(stored({ startingFollowers: 1200 }));
+
+    expect(useSettingsStore.getState().startingFollowers).toBe(1200);
+  });
+
+  it('leaves a v2 blob alone, including one that stores 0 on purpose', () => {
+    // Past the migration, 0 is a choice the user made with the new default in
+    // place, so it has to survive.
+    const { useSettingsStore } = loadStore(stored({ startingFollowers: 0 }, 2));
+
+    expect(useSettingsStore.getState().startingFollowers).toBe(0);
   });
 
   it('keeps defaults when the store cannot be read at all', () => {

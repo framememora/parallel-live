@@ -21,8 +21,10 @@ interface CommentBubbleProps {
  * broadcast overlay rather than a column of chips.
  */
 export function CommentBubble({ comment, depth, total }: CommentBubbleProps) {
-  // Only the broadcaster's own rows get the photo; every simulated commenter
-  // keeps a letter disc, which is part of what makes an own comment stand out.
+  // Only the broadcaster's own row gets their chosen photo (or its letter-disc
+  // fallback) plus the story ring; every simulated commenter gets a portrait
+  // derived from their handle instead. The ring is what makes an own comment
+  // stand out now that both carry a photo.
   const avatarUri = useSettingsStore((s) => s.avatarUri);
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(10);
@@ -49,6 +51,7 @@ export function CommentBubble({ comment, depth, total }: CommentBubbleProps) {
         uri={comment.isOwn ? avatarUri : undefined}
         size={26}
         ring={comment.isOwn}
+        simulated={!comment.isOwn}
       />
       <View style={styles.body}>
         <Text style={styles.handle} allowFontScaling={false} numberOfLines={1}>
