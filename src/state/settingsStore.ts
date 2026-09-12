@@ -120,10 +120,18 @@ interface SettingsStore extends SettingsState {
 
 export const DEFAULT_HANDLE = 'you';
 
+/**
+ * Deliberately not 0. An account with no followers doesn't have a live audience,
+ * so starting from zero undercuts the illusion before the first comment lands.
+ * `formatCompactNumber` renders this as "47k" — it drops the decimal at 10000
+ * and above.
+ */
+export const DEFAULT_STARTING_FOLLOWERS = 47000;
+
 const initialState: SettingsState = {
   handle: DEFAULT_HANDLE,
   avatarUri: null,
-  startingFollowers: 0,
+  startingFollowers: DEFAULT_STARTING_FOLLOWERS,
   recordSession: false,
   recordMicAudio: true,
   aiCommentsEnabled: false,
@@ -222,7 +230,31 @@ export const useSettingsStore = create<SettingsStore>()(
     {
       name: STORAGE_KEY,
       storage: createJSONStorage(() => secureStorage),
-      version: 1,
+      version: 2,
+      /**
+       * v1 → v2: `startingFollowers` used to default to 0, so every install
+       * from before this version has a stored 0 that `merge` would keep seating
+       * over the new default. Dropping the key lets the default apply.
+       *
+       * A stored 0 is indistinguishable from never having touched the field, so
+       * a deliberate 0 is lifted too — accepted, since 0 is the state being
+       * fixed and Settings can set it straight back.
+       *
+       * Synchronous on purpose: `persist` runs `migrate` inside the same
+       * rehydrate chain as the read, and returning a Promise here would make
+       * hydration async and reintroduce the flash of defaults described above.
+       */
+      migrate: (persisted, version) => {
+        if (version >= 2 || typeof persisted !== 'object' || persisted === null) {
+          return persisted as SettingsState;
+        }
+        const blob = persisted as Record<string, unknown>;
+        if (blob.startingFollowers === 0) {
+          const { startingFollowers: _dropped, ...rest } = blob;
+          return rest as unknown as SettingsState;
+        }
+        return blob as unknown as SettingsState;
+      },
       // Listed field by field rather than spread, so adding a setter later can
       // never start quietly persisting a function.
       partialize: (s): SettingsState => ({
