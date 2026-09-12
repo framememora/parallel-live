@@ -3,11 +3,12 @@ import { Platform } from 'react-native';
 import type { CameraRef } from 'react-native-vision-camera';
 import type { GeneratedComment } from '../../../engines/comments/types';
 import { generateCommentsForFrame } from '../../../services/ai/CommentVisionService';
+import { CAPTURE_INTERVAL_MS, classifyVisionError, nextBackoffMs } from '../../../services/ai/visionErrors';
+import { useAiStatusStore } from '../../../state/aiStatusStore';
 import { useSettingsStore } from '../../../state/settingsStore';
 import { arrayBufferToBase64 } from '../../../utils/base64';
+import { warn } from '../../../utils/log';
 
-/** How often a frame is captured and sent. Deliberately slow — this is a network round trip and a privacy cost. */
-const CAPTURE_INTERVAL_MS = 20_000;
 /** Longest edge sent to the API. The preview bitmap is full device resolution, which is far more detail than short comments need. */
 const MAX_EDGE_PX = 768;
 const JPEG_QUALITY = 60;
@@ -28,6 +29,12 @@ let aiSeq = 0;
  * Returns a stable `drain` to hand to `CommentScheduler`'s `externalSource`.
  * The network work deliberately happens here rather than in the scheduler, so
  * the scheduler's `tick()` stays synchronous.
+ *
+ * **Failures never interrupt the broadcast** — that part is unchanged, and is
+ * why the template bank keeps the feed running through any of this. What
+ * changed is that they are no longer silent: a failure that retrying cannot fix
+ * stops the loop and is reported in Settings, and a transient one backs off
+ * instead of hammering the same fixed timer for the length of the session.
  */
 export function useAiCommentEngine(active: boolean, cameraRef: React.RefObject<CameraRef | null>) {
   const buffer = useRef<GeneratedComment[]>([]);
@@ -42,13 +49,19 @@ export function useAiCommentEngine(active: boolean, cameraRef: React.RefObject<C
       return;
     }
 
+    const { markRunning, markOk, markStopped } = useAiStatusStore.getState();
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let cancelled = false;
+    /** Consecutive transient failures, reset by any successful round trip. */
+    let transientRun = 0;
 
-    const captureOnce = async () => {
+    markRunning();
+
+    /** Resolves false when there was nothing to capture, so an early return can't read as success. */
+    const captureOnce = async (): Promise<boolean> => {
       const camera = cameraRef.current;
-      if (!camera) return;
+      if (!camera) return false;
 
       const snapshot = await camera.takeSnapshot();
 
@@ -62,10 +75,10 @@ export function useAiCommentEngine(active: boolean, cameraRef: React.RefObject<C
           : snapshot;
 
       const encoded = await framed.toEncodedImageDataAsync('jpg', JPEG_QUALITY);
-      if (cancelled) return;
+      if (cancelled) return false;
 
       const comments = await generateCommentsForFrame(arrayBufferToBase64(encoded.buffer), controller.signal);
-      if (cancelled) return;
+      if (cancelled) return false;
 
       const now = Date.now();
       for (const comment of comments) {
@@ -85,15 +98,39 @@ export function useAiCommentEngine(active: boolean, cameraRef: React.RefObject<C
       if (buffer.current.length > MAX_BUFFERED) {
         buffer.current = buffer.current.slice(-MAX_BUFFERED);
       }
+      return true;
     };
 
     const loop = async () => {
-      // Swallowed on purpose: a dark frame, a rate limit, a dropped connection,
-      // or a missing key should quietly leave the template feed running rather
-      // than interrupt a recording in progress.
-      await captureOnce().catch(() => undefined);
+      let delay = CAPTURE_INTERVAL_MS;
+
+      try {
+        if (await captureOnce()) {
+          transientRun = 0;
+          markOk();
+        }
+      } catch (error) {
+        // A teardown aborts the in-flight request, which lands here as a
+        // failure it would be wrong to report. The session is over either way.
+        if (cancelled) return;
+
+        const failure = classifyVisionError(error);
+        warn('ai-comments', error);
+
+        if (failure !== 'transient') {
+          // No key, a rejected key, or a request this model refuses: the next
+          // twenty attempts fail identically. Stop, and leave the reason where
+          // Settings can show it — the feed carries on with templates.
+          markStopped(failure);
+          return;
+        }
+
+        transientRun += 1;
+        delay = nextBackoffMs(transientRun);
+      }
+
       if (cancelled) return;
-      timer = setTimeout(loop, CAPTURE_INTERVAL_MS);
+      timer = setTimeout(loop, delay);
     };
 
     // Small initial delay so the preview surface is actually ready — a snapshot

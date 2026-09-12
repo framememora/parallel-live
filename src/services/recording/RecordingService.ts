@@ -1,7 +1,6 @@
 import { Platform } from 'react-native';
 import {
   addScreenRecordingListener,
-  cancelInAppRecording,
   requestMicrophonePermission,
   requestScreenRecordingConsent,
   startGlobalRecording,
@@ -11,18 +10,36 @@ import {
   type RecordingError,
   type ScreenRecordingEvent,
 } from 'react-native-nitro-screen-recorder';
+import { warn } from '../../utils/log';
 
-export interface RecordingResult {
-  path: string;
-  durationSec: number;
-}
+/**
+ * What `stop()` came back with. A union rather than `RecordingResult | undefined`
+ * because the caller has to tell three cases apart: a file, a recorder that
+ * errored on the way out, and a recorder that returned nothing at all. All three
+ * used to arrive as `undefined` — the caller's own `.catch(() => undefined)`
+ * flattened the first of them — and the end screen reported one generic line for
+ * whichever had happened.
+ */
+export type StopRecordingResult =
+  | { ok: true; path: string; durationSec: number }
+  | { ok: false; reason: 'processing-failed' | 'no-file' };
 
 export interface StartRecordingOptions {
   enableMic?: boolean;
-  /** Called if the OS stops recording outside of our own stop()/cancel() (e.g. the user taps ReplayKit's system stop button, or the Android notification). */
+  /** Called if the OS stops recording outside of our own stop() (e.g. the user taps ReplayKit's system stop button, or the Android notification). */
   onUnexpectedStop?: () => void;
   /** Android only: fired if the global recording session errors after start. */
   onRecordingError?: (error: RecordingError) => void;
+}
+
+export interface StartRecordingResult {
+  /**
+   * True when mic audio was asked for and the permission was refused, so capture
+   * went ahead silent. The service used to make that call alone and say nothing:
+   * the user got a clip with no audio and no idea why, having explicitly asked
+   * for audio in Settings.
+   */
+  micDropped: boolean;
 }
 
 /**
@@ -57,14 +74,21 @@ class RecordingServiceImpl {
     }
   }
 
-  async start({ enableMic = true, onUnexpectedStop, onRecordingError }: StartRecordingOptions = {}): Promise<void> {
+  async start({
+    enableMic = true,
+    onUnexpectedStop,
+    onRecordingError,
+  }: StartRecordingOptions = {}): Promise<StartRecordingResult> {
     // The permission request resolves a status object rather than rejecting, so
     // a denial is only visible in `.granted`. Recording with `enableMic` still
     // true after a denial makes `startGlobalRecording` throw synchronously, so
     // fall back to a mic-less recording instead of failing the whole session.
     let micEnabled = enableMic;
     if (enableMic) {
-      const mic = await requestMicrophonePermission().catch(() => undefined);
+      const mic = await requestMicrophonePermission().catch((error: unknown) => {
+        warn('recording', error);
+        return undefined;
+      });
       micEnabled = mic?.granted ?? false;
     }
 
@@ -94,30 +118,35 @@ class RecordingServiceImpl {
         // just created. Without it the prepared session is discarded and
         // Android raises the MediaProjection dialog a *second* time.
         options: { enableMic: micEnabled, usePreparedConsent: true },
-        onRecordingError: (error) => onRecordingError?.(error),
+        onRecordingError: (error) => {
+          warn('recording', error.message);
+          onRecordingError?.(error);
+        },
       });
     }
+
+    return { micDropped: enableMic && !micEnabled };
   }
 
-  async stop(): Promise<RecordingResult | undefined> {
+  /**
+   * Catches rather than throwing, so the caller can stop wrapping this in a
+   * blanket `.catch(() => undefined)` that erased the difference between a
+   * recorder that failed and one that simply had nothing to hand back.
+   */
+  async stop(): Promise<StopRecordingResult> {
     this.stoppingOurselves = true;
-    const file =
-      Platform.OS === 'ios' ? await stopInAppRecording() : await stopGlobalRecording({ settledTimeMs: 800 });
-    this.stopListenerCleanup?.();
-    this.stopListenerCleanup = undefined;
-    if (!file) return undefined;
-    return { path: file.path, durationSec: file.duration };
-  }
-
-  async cancel(): Promise<void> {
-    this.stoppingOurselves = true;
-    if (Platform.OS === 'ios') {
-      await cancelInAppRecording();
-    } else {
-      await stopGlobalRecording().catch(() => undefined);
+    try {
+      const file =
+        Platform.OS === 'ios' ? await stopInAppRecording() : await stopGlobalRecording({ settledTimeMs: 800 });
+      if (!file) return { ok: false, reason: 'no-file' };
+      return { ok: true, path: file.path, durationSec: file.duration };
+    } catch (error) {
+      warn('recording', error);
+      return { ok: false, reason: 'processing-failed' };
+    } finally {
+      this.stopListenerCleanup?.();
+      this.stopListenerCleanup = undefined;
     }
-    this.stopListenerCleanup?.();
-    this.stopListenerCleanup = undefined;
   }
 }
 

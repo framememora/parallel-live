@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSessionStore } from '../../state/sessionStore';
+import type { SessionSummary } from '../../types/session';
 import { colors, radii, spacing, type } from '../../theme/tokens';
 import { StatSummaryCard } from './components/StatSummaryCard';
 import { SaveToRollButton } from './components/SaveToRollButton';
@@ -15,6 +16,7 @@ export function SessionEndScreen({ onDone }: SessionEndScreenProps) {
   const summary = useSessionStore((s) => s.summary);
   const reset = useSessionStore((s) => s.reset);
   const insets = useSafeAreaInsets();
+  const note = summary && recordingNote(summary);
 
   const handleDone = () => {
     reset();
@@ -43,11 +45,9 @@ export function SessionEndScreen({ onDone }: SessionEndScreenProps) {
           failure would be a lie, and offering a save button would be a dead
           control. Both are gated on `recordingRequested` rather than on the
           absence of a path, which alone can't tell the two cases apart. */}
-      {summary?.recordingRequested && !summary.finalVideoPath && (
+      {summary?.recordingRequested && note && (
         <View style={styles.warningBox}>
-          <Text style={styles.warning}>
-            We couldn’t finish processing a video for this session, so there’s nothing to save.
-          </Text>
+          <Text style={styles.warning}>{note}</Text>
         </View>
       )}
 
@@ -64,6 +64,30 @@ export function SessionEndScreen({ onDone }: SessionEndScreenProps) {
       </View>
     </View>
   );
+}
+
+/**
+ * What to say about a recording that was asked for. Returns nothing when there
+ * is a file and the audio came through — the common case deserves no notice.
+ *
+ * Three separate failures used to share one sentence about processing, which was
+ * only true for one of them. The mic case is last because it is the only one
+ * that still has a video: it explains a clip the user is about to watch and find
+ * silent, rather than the absence of one.
+ */
+function recordingNote(summary: SessionSummary): string | undefined {
+  switch (summary.recordingIssue) {
+    case 'capture-failed':
+      return 'The screen capture was stopped partway through, so there’s nothing to save.';
+    case 'processing-failed':
+      return 'We couldn’t finish processing a video for this session, so there’s nothing to save.';
+    case 'no-file':
+      return 'The recording finished but no file came back, so there’s nothing to save.';
+  }
+  if (summary.micDropped && summary.finalVideoPath) {
+    return 'Saved without sound — microphone access was denied, so the clip has no audio.';
+  }
+  return undefined;
 }
 
 const styles = StyleSheet.create({

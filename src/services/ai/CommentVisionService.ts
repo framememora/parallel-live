@@ -1,4 +1,8 @@
 import { resolveApiKey, resolveVisionModel } from '../../state/settingsStore';
+import { MissingApiKeyError, VisionRequestError } from './visionErrors';
+import { warn } from '../../utils/log';
+
+export { MissingApiKeyError } from './visionErrors';
 
 /** One comment as returned by the model, before it's turned into a `GeneratedComment`. */
 export interface VisionComment {
@@ -56,13 +60,6 @@ const RESPONSE_SCHEMA = {
   required: ['comments'],
   additionalProperties: false,
 };
-
-export class MissingApiKeyError extends Error {
-  constructor() {
-    super('No Anthropic API key configured');
-    this.name = 'MissingApiKeyError';
-  }
-}
 
 /**
  * Calls the Messages API over `fetch` rather than through `@anthropic-ai/sdk`.
@@ -125,10 +122,7 @@ export async function generateCommentsForFrame(
   });
 
   if (!response.ok) {
-    // Surfacing the model matters here: a 400 is most likely an `output_config`
-    // field the selected model doesn't accept, and the message alone won't say
-    // which model was in play.
-    throw new Error(`Claude API ${response.status} (${model.id}): ${await response.text()}`);
+    throw new VisionRequestError(response.status, model.id, await response.text());
   }
 
   const body = (await response.json()) as {
@@ -138,10 +132,20 @@ export async function generateCommentsForFrame(
 
   // Safety classifiers can decline a frame; `content` is then empty or partial,
   // so check the stop reason before reading it.
-  if (body.stop_reason === 'refusal') return [];
+  //
+  // These next three paths all yield "no comments this cycle", which is the
+  // right behaviour and an indistinguishable one — hence the dev-only note
+  // saying which of them happened.
+  if (body.stop_reason === 'refusal') {
+    warn('vision', 'frame declined by the safety classifier');
+    return [];
+  }
 
   const text = body.content?.find((block) => block.type === 'text')?.text;
-  if (!text) return [];
+  if (!text) {
+    warn('vision', `no text block in the response (stop_reason: ${body.stop_reason ?? 'none'})`);
+    return [];
+  }
 
   return parseComments(text);
 }
@@ -152,11 +156,15 @@ function parseComments(raw: string): VisionComment[] {
   try {
     parsed = JSON.parse(raw);
   } catch {
+    warn('vision', 'response was not JSON');
     return [];
   }
 
   const comments = (parsed as { comments?: unknown })?.comments;
-  if (!Array.isArray(comments)) return [];
+  if (!Array.isArray(comments)) {
+    warn('vision', 'response JSON had no comments array');
+    return [];
+  }
 
   return comments
     .filter((c): c is VisionComment => typeof c?.author === 'string' && typeof c?.text === 'string')

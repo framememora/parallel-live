@@ -35,6 +35,14 @@ export const colors = {
   neutralAction: '#3A3A3C',
   /** Instagram's badge gold, behind dark text on the "Buy a badge" prompt. */
   badge: '#F7C325',
+  /**
+   * The same gold at glass weight, filling a gift row in the comment feed.
+   * Light enough that the camera still reads through it — a gift has to stand
+   * out from the comments around it without becoming a solid card on the frame.
+   */
+  badgeGlass: 'rgba(247,195,37,0.16)',
+  /** Gold hairline that edges a gift row, matching `hairline`'s job for glass chrome. */
+  badgeHairline: 'rgba(247,195,37,0.45)',
 
   /** Scrim endpoints; consumed by Skia LinearGradient, which needs real colors. */
   scrimTransparent: 'rgba(0,0,0,0)',

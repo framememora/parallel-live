@@ -8,15 +8,24 @@ interface StatSummaryCardProps {
   summary: SessionSummary;
 }
 
+/**
+ * Two rows of two rather than one row of four. A fourth column fits a 400pt
+ * screen and truncates "Peak viewers" on a 320pt one, and the label is the half
+ * that carries the meaning — the number alone doesn't say what it counts.
+ */
 export function StatSummaryCard({ summary }: StatSummaryCardProps) {
   return (
     <View style={styles.card}>
       <View style={styles.row}>
         <Stat label="Peak viewers" value={formatCompactNumber(summary.peakViewers)} />
         <View style={styles.divider} />
+        <Stat label="Duration" value={formatDuration(summary.durationSec)} />
+      </View>
+      <View style={styles.rowDivider} />
+      <View style={styles.row}>
         <Stat label="Hearts" value={formatCompactNumber(summary.totalHearts)} />
         <View style={styles.divider} />
-        <Stat label="Duration" value={formatDuration(summary.durationSec)} />
+        <Stat label="Gifts" value={formatCompactNumber(summary.totalGifts)} />
       </View>
     </View>
   );
@@ -41,12 +50,17 @@ const styles = StyleSheet.create({
     borderRadius: radii.card,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.hairline,
-    paddingVertical: spacing.xxl,
+    paddingVertical: spacing.xl,
     paddingHorizontal: spacing.md,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  rowDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.hairline,
+    marginVertical: spacing.xl,
   },
   stat: {
     flex: 1,

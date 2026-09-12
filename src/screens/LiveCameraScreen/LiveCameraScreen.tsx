@@ -24,6 +24,7 @@ import { RecordingService } from '../../services/recording/RecordingService';
 import { useSessionStore } from '../../state/sessionStore';
 import { useSettingsStore } from '../../state/settingsStore';
 import { colors, radii, spacing, type } from '../../theme/tokens';
+import { warn } from '../../utils/log';
 import { SettingsSheet } from '../SettingsSheet/SettingsSheet';
 import { ActionRail } from './components/ActionRail';
 import { CameraPreview } from './components/CameraPreview';
@@ -35,6 +36,7 @@ import { LiveHeader } from './components/LiveHeader';
 import { useAiCommentEngine } from './hooks/useAiCommentEngine';
 import { useCommentEngine } from './hooks/useCommentEngine';
 import { useFollowerCountEngine } from './hooks/useFollowerCountEngine';
+import { useGiftEngine } from './hooks/useGiftEngine';
 import { useHeartBurstEngine } from './hooks/useHeartBurstEngine';
 import { useViewerCountEngine } from './hooks/useViewerCountEngine';
 
@@ -80,12 +82,19 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
   // can't tell `endLiveSession`: consent may have been declined, or `start()`
   // may have thrown, and stopping something that never started is not free.
   const recordingStartedRef = useRef(false);
+  // Set from `onRecordingError`, which is registered once at start() and so
+  // can't write to state without reading a stale render's copy — the same
+  // hazard `handleUnexpectedStop` works around by going to the store directly.
+  const captureFailedRef = useRef(false);
+  // Whether mic audio was asked for and refused, reported by `start()`.
+  const micDroppedRef = useRef(false);
   const insets = useSafeAreaInsets();
   const { height: screenHeight } = useWindowDimensions();
   const [composerHeight, setComposerHeight] = useState(FALLBACK_COMPOSER_HEIGHT + insets.bottom);
   const [headerHeight, setHeaderHeight] = useState(FALLBACK_HEADER_HEIGHT + insets.top);
 
   const recordSession = useSettingsStore((s) => s.recordSession);
+  const startingFollowers = useSettingsStore((s) => s.startingFollowers);
 
   const status = useSessionStore((s) => s.status);
   const currentViewers = useSessionStore((s) => s.currentViewers);
@@ -98,6 +107,19 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
 
   const isLive = status === 'live';
   const isProcessing = status === 'processing';
+
+  /**
+   * The header renders while idle too, and the session store starts (and resets)
+   * at 0 followers — `useFollowerCountEngine` only publishes the setting once a
+   * session is actually live. Without this the idle screen read "0 followers"
+   * every time, which is the one number that contradicts the premise outright,
+   * and it read 0 again the moment a session ended.
+   *
+   * One expression covers all three cases: idle, the frame between "Go Live" and
+   * the engine's first publish, and the reset back to idle. A deliberate 0 in
+   * Settings still shows 0 — past the v2 migration a stored 0 is a real choice.
+   */
+  const headerFollowers = followers > 0 ? followers : startingFollowers;
   const heartLayerRef = useRef<HeartBurstLayerHandle>(null);
   const milestoneTracker = useMemo(() => createMilestoneTracker(), []);
 
@@ -130,10 +152,12 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
         // route out of that state.
         if (canRequestCamera) await requestCameraPermission();
         if (canRequestMic) await requestMicPermission();
-      } catch {
+      } catch (error) {
         // `requestPermission` awaits the native call with no catch of its own,
         // so a rejection escapes as an unhandled promise rejection. The gate
-        // below already renders the un-granted state; nothing here to recover.
+        // below already renders the un-granted state; nothing here to recover,
+        // but a permission dialog that threw is worth seeing in development.
+        warn('permissions', error);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -144,6 +168,7 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
   useViewerCountEngine(isLive, milestoneTracker);
   useFollowerCountEngine(isLive);
   useCommentEngine(isLive, milestoneTracker, drainAiComments);
+  useGiftEngine(isLive, milestoneTracker);
   const { triggerTap } = useHeartBurstEngine(isLive, heartLayerRef, milestoneTracker);
 
   const flipCamera = useCallback(() => {
@@ -222,12 +247,15 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
     endSession({
       peakViewers: state.peakViewers,
       totalHearts: state.totalHearts,
+      totalGifts: state.totalGifts,
       durationSec,
       finalVideoPath: undefined,
       // Hardcoded rather than read from the setting: this listener only exists
       // because recording started, so a recording was definitely requested, and
       // a literal can't go stale the way a captured setting could.
       recordingRequested: true,
+      recordingIssue: 'capture-failed',
+      micDropped: micDroppedRef.current,
     });
     onSessionEnd?.();
   };
@@ -239,28 +267,39 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
 
     // Only stop what actually started — recording is opt-in, and consent can be
     // declined even when it's on.
-    const raw = recordingStartedRef.current
-      ? await RecordingService.stop().catch(() => undefined)
-      : undefined;
+    const raw = recordingStartedRef.current ? await RecordingService.stop() : undefined;
     recordingStartedRef.current = false;
     // The recording is saved as captured. There used to be a re-encode pass here
     // that composited a "SIMULATED" overlay into the video track; it was removed
     // deliberately, and skipping it also drops a full re-encode from the end of
     // every session, so saving is now near-instant.
-    const finalVideoPath = raw?.path;
+    const finalVideoPath = raw?.ok ? raw.path : undefined;
+    // A capture that died mid-session outranks whatever stopping it reported:
+    // it is the thing that actually went wrong, and stop() failing afterwards
+    // is a consequence of it.
+    const recordingIssue = captureFailedRef.current
+      ? ('capture-failed' as const)
+      : raw && !raw.ok
+        ? raw.reason
+        : undefined;
 
     endSession({
       peakViewers: useSessionStore.getState().peakViewers,
       totalHearts: useSessionStore.getState().totalHearts,
+      totalGifts: useSessionStore.getState().totalGifts,
       durationSec,
       finalVideoPath,
       recordingRequested: recordSession,
+      recordingIssue,
+      micDropped: micDroppedRef.current,
     });
     onSessionEnd?.();
   };
 
   const startLiveSession = async () => {
     recordingStartedRef.current = false;
+    captureFailedRef.current = false;
+    micDroppedRef.current = false;
 
     // Nothing about the simulation needs screen capture — the engines are pure
     // JS over a camera preview. Capture exists only to produce a saveable clip,
@@ -278,12 +317,21 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
           // Read at start, the only moment it can be applied: the recorder takes
           // `enableMic` when capture begins and offers no mute call afterwards.
           // It defaulted to true and was never passed until now.
-          await RecordingService.start({
+          const started = await RecordingService.start({
             enableMic: useSettingsStore.getState().recordMicAudio,
             onUnexpectedStop: handleUnexpectedStop,
+            // Android raises this if MediaProjection fails *after* a successful
+            // start. It was declared and wired all the way to the native call
+            // and never passed here, so a capture that died mid-session ran to
+            // the end of the broadcast looking like it was still recording.
+            onRecordingError: () => {
+              captureFailedRef.current = true;
+            },
           });
+          micDroppedRef.current = started.micDropped;
           recordingStartedRef.current = true;
-        } catch {
+        } catch (error) {
+          warn('recording', error);
           recordingStartedRef.current = false;
         }
       }
@@ -310,7 +358,7 @@ export function LiveCameraScreen({ onSessionEnd }: LiveCameraScreenProps) {
         <LiveHeader
           isLive={isLive}
           viewers={currentViewers}
-          followers={followers}
+          followers={headerFollowers}
           onEnd={endLiveSession}
           topInset={insets.top}
           onMeasure={setHeaderHeight}

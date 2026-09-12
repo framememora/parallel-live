@@ -10,6 +10,8 @@ interface SessionStore extends SessionState {
   updateViewers: (current: number, peak: number) => void;
   updateFollowers: (current: number) => void;
   addHearts: (count: number) => void;
+  /** Counts a simulated gift. The row itself arrives through `addComment`, like any other. */
+  addGift: () => void;
   setStatus: (status: SessionStatus) => void;
   endSession: (summary: SessionSummary) => void;
   reset: () => void;
@@ -21,6 +23,7 @@ const initialState: SessionState = {
   peakViewers: 0,
   followers: 0,
   totalHearts: 0,
+  totalGifts: 0,
   comments: [],
 };
 
@@ -44,6 +47,8 @@ export const useSessionStore = create<SessionStore>((set) => ({
   updateFollowers: (current) => set({ followers: current }),
 
   addHearts: (count) => set((state) => ({ totalHearts: state.totalHearts + count })),
+
+  addGift: () => set((state) => ({ totalGifts: state.totalGifts + 1 })),
 
   setStatus: (status) => set({ status }),
 

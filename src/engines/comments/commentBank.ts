@@ -51,6 +51,7 @@ const hypeBro: CommentTemplate[] = [
   t('hypeBro', 'undefeated season continues {emoji}', ['emoji']),
   t('hypeBro', 'and THAT’S on periodt {emoji}', ['emoji']),
   t('hypeBro', 'we just hit {count}, insane {emoji}', ['count', 'emoji'], { requiresMilestone: 'viewerSpike', weight: 2 }),
+  t('hypeBro', 'BIG SPENDER ALERT {emoji}', ['emoji'], { requiresMilestone: 'giftReceived' }),
 ];
 
 const skeptic: CommentTemplate[] = [
@@ -73,6 +74,7 @@ const skeptic: CommentTemplate[] = [
   t('skeptic', 'somebody fact check this live {emoji}', ['emoji']),
   t('skeptic', 'the vibes are immaculate but the numbers are wild', []),
   t('skeptic', 'not the {count} viewers out of nowhere {emoji}', ['count', 'emoji'], { requiresMilestone: 'viewerSpike' }),
+  t('skeptic', 'who has gift money in this economy {emoji}', ['emoji'], { requiresMilestone: 'giftReceived' }),
 ];
 
 const emojiSpammer: CommentTemplate[] = [
@@ -87,6 +89,7 @@ const emojiSpammer: CommentTemplate[] = [
   t('emojiSpammer', '{emoji}', ['emoji'], { weight: 0.6 }),
   t('emojiSpammer', 'omggg {emoji}{emoji}{emoji}', ['emoji', 'emoji', 'emoji'], { requiresMilestone: 'heartBurst' }),
   t('emojiSpammer', '{emoji}{emoji}{emoji}{emoji}{emoji}{emoji}', ['emoji', 'emoji', 'emoji', 'emoji', 'emoji', 'emoji']),
+  t('emojiSpammer', 'THE GIFTS {emoji}{emoji}{emoji}', ['emoji', 'emoji', 'emoji'], { requiresMilestone: 'giftReceived' }),
 ];
 
 const newbie: CommentTemplate[] = [
@@ -122,6 +125,7 @@ const oldFan: CommentTemplate[] = [
   t('oldFan', 'day one supporter checking in {emoji}', ['emoji']),
   t('oldFan', 'still can’t believe how big this got {emoji}', ['emoji'], { requiresMilestone: 'viewerSpike' }),
   t('oldFan', 'loyalty gang where you at {emoji}', ['emoji']),
+  t('oldFan', 'people really out here spoiling {name} now {emoji}', ['name', 'emoji'], { requiresMilestone: 'giftReceived' }),
 ];
 
 const flirty: CommentTemplate[] = [
@@ -152,6 +156,7 @@ const confused: CommentTemplate[] = [
   t('confused', 'is this a bit or is this real {emoji}', ['emoji']),
   t('confused', 'my brain hurts trying to keep up {emoji}', ['emoji']),
   t('confused', 'wait go back go back {emoji}', ['emoji']),
+  t('confused', 'wait what does sending one of those even do {emoji}', ['emoji'], { requiresMilestone: 'giftReceived' }),
 ];
 
 const supportive: CommentTemplate[] = [
@@ -169,6 +174,7 @@ const supportive: CommentTemplate[] = [
   t('supportive', 'no pressure, just enjoy it {emoji}', ['emoji']),
   t('supportive', 'we appreciate you {emoji}', ['emoji']),
   t('supportive', 'the hearts are flying because you earned it {emoji}', ['emoji'], { requiresMilestone: 'heartBurst' }),
+  t('supportive', '{name} deserves every one of those {emoji}', ['name', 'emoji'], { requiresMilestone: 'giftReceived' }),
 ];
 
 export const COMMENT_TEMPLATES: readonly CommentTemplate[] = [

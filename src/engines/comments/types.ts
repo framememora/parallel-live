@@ -21,7 +21,7 @@ export const ALL_PERSONAS: readonly Persona[] = [
 
 export type SlotKind = 'name' | 'emoji' | 'count' | 'timePhrase' | 'compliment' | 'question';
 
-export type Milestone = 'viewerSpike' | 'heartBurst' | 'none';
+export type Milestone = 'viewerSpike' | 'heartBurst' | 'giftReceived' | 'none';
 
 export interface CommentTemplate {
   id: string;
@@ -53,6 +53,22 @@ export interface GeneratedComment {
    * persona union stays exactly the set the template bank is keyed by.
    */
   isOwn?: boolean;
+  /**
+   * Set when this row is a gift arriving rather than someone talking. Carried as
+   * an optional field on the comment for the same reason `isOwn` is: gifts ride
+   * the one feed the store already caps and fades, and interleave with comments
+   * chronologically the way they do on a real broadcast. The scheduler never
+   * produces one — `useGiftEngine` pushes them straight to the store.
+   */
+  gift?: GiftRowInfo;
+}
+
+/** What a gift row needs to render, flattened off `GiftTier` at the moment it lands. */
+export interface GiftRowInfo {
+  tierId: string;
+  emoji: string;
+  /** Completes "‹author› sent ‹label›". */
+  label: string;
 }
 
 export interface CommentContext {

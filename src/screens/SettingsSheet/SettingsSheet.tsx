@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
+import { useAiStatusStore, type AiCommentStatus } from '../../state/aiStatusStore';
 import { VISION_MODELS, useSettingsStore, type VisionModelId } from '../../state/settingsStore';
 import { colors, radii, spacing, type } from '../../theme/tokens';
 import { PhotoPickerSheet } from './PhotoPickerSheet';
@@ -39,6 +40,11 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
   const aiCommentsEnabled = useSettingsStore((s) => s.aiCommentsEnabled);
   const apiKey = useSettingsStore((s) => s.apiKey);
   const visionModel = useSettingsStore((s) => s.visionModel);
+  const aiStatus = useAiStatusStore((s) => s.status);
+  // The hook behind this toggle is Android-only (vision-camera's takeSnapshot
+  // throws on iOS), which the hint already said while the switch stayed live —
+  // so an iOS user could turn on a feature that does nothing.
+  const aiSupported = Platform.OS === 'android';
   const setHandle = useSettingsStore((s) => s.setHandle);
   const setStartingFollowers = useSettingsStore((s) => s.setStartingFollowers);
   const setRecordSession = useSettingsStore((s) => s.setRecordSession);
@@ -65,6 +71,7 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
     setFollowersDraft(String(Math.max(0, Math.floor(parsed) || 0)));
   };
   const commitApiKey = () => setApiKey(apiKeyDraft);
+  const statusNote = aiStatusNote(aiStatus);
 
   const close = () => {
     commitHandle();
@@ -192,8 +199,9 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
                 </Text>
               </View>
               <Switch
-                value={aiCommentsEnabled}
+                value={aiCommentsEnabled && aiSupported}
                 onValueChange={setAiCommentsEnabled}
+                disabled={!aiSupported}
                 trackColor={{ false: colors.surfaceElevated, true: colors.heart }}
                 thumbColor={colors.textPrimary}
                 accessibilityLabel="Enable camera-aware comments"
@@ -237,6 +245,17 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
                   accessibilityLabel="Anthropic API key"
                 />
               </Field>
+            )}
+
+            {/* The one place a failure can be reported. Nothing may be said
+                during a broadcast — the feed falls back to templates and must
+                not break character — so the engine leaves its reason here and
+                this is where the user comes looking when the comments never
+                mentioned what was in front of the camera. */}
+            {aiCommentsEnabled && statusNote && (
+              <View style={styles.statusNote}>
+                <Text style={styles.statusText}>{statusNote}</Text>
+              </View>
             )}
           </ScrollView>
 
@@ -307,6 +326,25 @@ function ModelOption({
       </View>
     </Pressable>
   );
+}
+
+/**
+ * Why the last run produced nothing, in the user's terms. Each of these is a
+ * state retrying cannot clear, which is why the engine stopped rather than
+ * spending the rest of the session failing every twenty seconds.
+ */
+function aiStatusNote(status: AiCommentStatus): string | undefined {
+  if (status.state !== 'stopped') return undefined;
+  switch (status.reason) {
+    case 'missing-key':
+      return 'No comments were generated last time — there was no API key to send. Paste one above.';
+    case 'auth':
+      return 'No comments were generated last time — the key was rejected. Check it hasn’t been revoked.';
+    case 'request':
+      return 'No comments were generated last time — the selected model refused the request. Try another model.';
+    case 'transient':
+      return 'No comments were generated last time — the connection to the API kept failing.';
+  }
 }
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -390,6 +428,24 @@ const styles = StyleSheet.create({
     ...type.small,
     fontWeight: '400',
     color: colors.textSecondary,
+    lineHeight: 17,
+  },
+  /**
+   * Bordered rather than tinted: this is a report on something that already
+   * happened, not an error to act on right now, and a filled warning panel in a
+   * settings sheet reads as the latter.
+   */
+  statusNote: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm + 2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.hairline,
+    padding: spacing.lg,
+  },
+  statusText: {
+    ...type.small,
+    fontWeight: '400',
+    color: colors.warning,
     lineHeight: 17,
   },
   divider: {

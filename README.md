@@ -3,7 +3,8 @@
 An Android app that simulates being live on camera. It opens your real camera,
 then runs a fake broadcast over it: a viewer count that climbs and stalls the way
 a real one does, followers arriving behind it, comments landing in a feed, hearts
-floating up the right edge.
+floating up the right edge, and the occasional gift arriving from someone in the
+audience.
 
 Nothing is streamed anywhere. There is no server, no audience, and no account —
 the numbers come from local simulation curves, and the comments come from a bank
@@ -89,6 +90,15 @@ With no key, no connection, or the feature off, the template comment bank runs
 the session instead. That is a designed fallback, not a degraded mode — it is
 what the app does by default.
 
+It used to be an *invisible* fallback, which was the problem: every failure was
+swallowed by one blanket catch, so turning the feature on with an empty key
+looked exactly like it working. Failures are now sorted into the ones retrying
+can fix and the ones it can't. A missing key, a rejected key, or a model refusing
+the request stops the loop and is reported in Settings afterwards; a dropped
+connection backs off from 20 seconds toward a ~2.5 minute ceiling and recovers on
+its own. Nothing is ever said during a broadcast — the feed has a character to
+hold — which is why Settings is where the reason waits.
+
 ## Commenter portraits
 
 The second thing that leaves the device, and the quieter one. Every commenter in
@@ -113,6 +123,25 @@ hash — skin tone, hair, features, plain `View`s and no canvas. It renders
 *underneath* the portrait rather than instead of it, so a row is complete on its
 first frame and stays complete offline.
 
+## Gifts
+
+Viewers send gifts during a broadcast — a rose, a badge, occasionally a crown —
+and each one lands as a gold row in the comment feed with the sender's portrait
+beside it. No money moves anywhere. This is the same kind of prop as the "Buy a
+badge to support you" strip above the comment bar, which has never had a press
+handler behind it, and there is no audience to donate in the first place.
+
+Two things keep it from reading as a toy. Gifts are **rare** — the gap between
+them is measured in tens of seconds against the heart scheduler's tens of
+milliseconds, and the top three tiers together are under a tenth of gifts — and
+only those top tiers make the rest of the feed react, through the same milestone
+mechanism a viewer spike uses. A chat that gasps at every rose is a chat nobody
+believes.
+
+The senders come from the same roster as the commenters, so a gift arrives from
+someone the feed has plausibly been hearing from, and gets dealt a real portrait
+rather than hashing into a collision.
+
 ## Tests
 
 ```sh
@@ -120,13 +149,17 @@ npm test          # jest
 npx tsc --noEmit  # typecheck
 ```
 
-The suites cover the simulation engines, the comment generator, icon rendering,
-settings persistence (including the migration that lifts a stored follower count
-of 0), and the avatar chain — portrait URL derivation, the drawn fallback, and
+The suites cover the simulation engines (including the gift scheduler's rarity
+and weighting), the comment generator, icon rendering, settings persistence
+(including the migration that lifts a stored follower count of 0), the
+classification that decides whether a failed vision request is worth retrying,
+and the avatar chain — portrait URL derivation, the drawn fallback, and
 `Avatar`'s own precedence rules. Several were written by breaking the code first and
 confirming the test caught it, since the interesting failures here are silent
-ones — a missing icon case renders an invisible glyph without a type error, and a
-dropped field in `partialize` would quietly stop persisting a setting.
+ones — a missing icon case renders an invisible glyph without a type error, a
+dropped field in `partialize` would quietly stop persisting a setting, and a
+comment bank that lost its gift templates would simply go quiet through a crown
+landing.
 
 ## Status
 

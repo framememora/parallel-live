@@ -1,4 +1,5 @@
 import { AssetField, MediaType, Query } from 'expo-media-library';
+import { warn } from '../../utils/log';
 
 /** One gallery photo, reduced to what the picker grid actually renders. */
 export interface LibraryPhoto {
@@ -33,8 +34,29 @@ export const PhotoLibraryService = {
     // `exeForMetadata()` would be one cheap call for the whole page, but its
     // `AssetMetadata` carries no `uri` — the one field a thumbnail needs. So
     // the URIs are resolved individually, in parallel, once per open.
-    return Promise.all(
+    //
+    // `allSettled`, not `all`: one asset that won't resolve — a file removed
+    // behind the media store's back, or one outside a "selected photos" grant —
+    // used to reject the whole page and report "we couldn't load your photos"
+    // for a library that is almost entirely readable. A missing photo now costs
+    // its own thumbnail and nothing else.
+    const resolved = await Promise.allSettled(
       assets.map(async (asset) => ({ id: asset.id, uri: await asset.getUri() }))
     );
+
+    const photos = resolved
+      .filter((r): r is PromiseFulfilledResult<LibraryPhoto> => r.status === 'fulfilled')
+      .map((r) => r.value);
+
+    // Everything failing is a different thing from a few gaps — that is the
+    // library being unreadable, and the picker's error state is the honest
+    // response. Throwing keeps that path intact.
+    if (photos.length === 0 && assets.length > 0) {
+      const [first] = resolved;
+      warn('photo-library', first?.status === 'rejected' ? first.reason : 'every asset failed to resolve');
+      throw new Error('None of the photos on this device could be read.');
+    }
+
+    return photos;
   },
 };

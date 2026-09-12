@@ -61,6 +61,30 @@ describe('selectTemplate gating', () => {
       expect(tpl?.requiresMilestone === undefined || tpl.requiresMilestone === 'none').toBe(true);
     }
   });
+
+  // The gift templates are the only reason a gift reads as an event the room
+  // noticed rather than a row that scrolled past. If the bank ever loses them
+  // the feed goes quiet through a crown landing and nothing else would fail.
+  it('has gift-reaction templates, and reaches them only while that milestone is up', () => {
+    const giftTemplates = COMMENT_TEMPLATES.filter((tpl) => tpl.requiresMilestone === 'giftReceived');
+    expect(giftTemplates.length).toBeGreaterThanOrEqual(3);
+
+    const rand = createSeededRandom(41);
+    const state = createSchedulerState();
+    let sawGiftTemplate = false;
+    for (let i = 0; i < 400; i++) {
+      const tpl = selectTemplate(
+        COMMENT_TEMPLATES,
+        baseContext({ recentMilestone: 'giftReceived', now: i * 5000 }),
+        state,
+        rand
+      );
+      if (tpl?.requiresMilestone === 'giftReceived') sawGiftTemplate = true;
+      // A gift being live must not unlock the other milestones' templates.
+      expect(tpl?.requiresMilestone === 'viewerSpike' || tpl?.requiresMilestone === 'heartBurst').toBe(false);
+    }
+    expect(sawGiftTemplate).toBe(true);
+  });
 });
 
 describe('generateNextComment anti-repetition', () => {
