@@ -60,6 +60,10 @@ Reachable by tapping the avatar while idle. Handle, profile photo, starting
 follower count, whether to screen-record the session, whether that recording
 captures microphone audio, and the AI comment options.
 
+The follower count starts at 47k rather than 0. Zero contradicts the premise —
+an account with nobody following it does not have a live audience — so the
+default is a plausible number and the field is there to change it.
+
 These persist across restarts in a single `expo-secure-store` key. That matters
 most for the API key: the Settings field is the only place one can come from, and
 it is held in the Keystore-backed store rather than in the bundle.
@@ -85,6 +89,30 @@ With no key, no connection, or the feature off, the template comment bank runs
 the session instead. That is a designed fallback, not a degraded mode — it is
 what the app does by default.
 
+## Commenter portraits
+
+The second thing that leaves the device, and the quieter one. Every commenter in
+the feed shows a real photograph, fetched from `randomuser.me` — 200 portraits
+served straight off their CDN, no API call and no key.
+
+Nothing about you is sent. The handle is hashed locally and only an index reaches
+the network, so the request says which stock portrait to return and nothing else.
+Unlike the camera upload this is on unconditionally, which is defensible only
+because there is nothing in it to opt out of.
+
+The handles are generated (`engines/comments/slotPools.ts`) and no account exists
+behind any of them, so the mapping is arbitrary but fixed: a commenter who
+reappears mid-recording must not change face. The known roster is dealt
+consecutive portraits rather than hashed ones, because hashing 62 handles into
+200 slots left 47 distinct faces with one shared by four commenters — two people
+wearing the same photo in one feed is the exact tell the determinism exists to
+avoid.
+
+With no network, each row falls back to a bust silhouette drawn from the same
+hash — skin tone, hair, features, plain `View`s and no canvas. It renders
+*underneath* the portrait rather than instead of it, so a row is complete on its
+first frame and stays complete offline.
+
 ## Tests
 
 ```sh
@@ -92,8 +120,10 @@ npm test          # jest
 npx tsc --noEmit  # typecheck
 ```
 
-The suites cover the simulation engines, the comment generator, icon rendering
-and settings persistence. Several were written by breaking the code first and
+The suites cover the simulation engines, the comment generator, icon rendering,
+settings persistence (including the migration that lifts a stored follower count
+of 0), and the avatar chain — portrait URL derivation, the drawn fallback, and
+`Avatar`'s own precedence rules. Several were written by breaking the code first and
 confirming the test caught it, since the interesting failures here are silent
 ones — a missing icon case renders an invisible glyph without a type error, and a
 dropped field in `partialize` would quietly stop persisting a setting.
@@ -101,8 +131,16 @@ dropped field in `partialize` would quietly stop persisting a setting.
 ## Status
 
 Personal project, not shipped. Known gaps before it could be: there is no privacy
-policy for the camera upload path, which becomes mandatory before distribution;
-iOS is unfinished; and OTA updates aren't code-signed, covered below.
+policy covering what leaves the device, which becomes mandatory before
+distribution and now has two paths to describe rather than one — the opt-in
+camera upload to `api.anthropic.com`, and the commenter portraits fetched from
+`randomuser.me` on every session; iOS is unfinished; and OTA updates aren't
+code-signed, covered below.
+
+The portrait dependency is worth a second look before any distribution for a
+reason unrelated to privacy: those are photographs of real people, served by a
+third party under their terms, attached to handles the app invents. Fine for a
+personal build, a licensing question for a public one.
 
 ### OTA updates are not code-signed
 
