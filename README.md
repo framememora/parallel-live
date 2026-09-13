@@ -45,6 +45,19 @@ whose native layer matches it. Adding or removing a native module changes that
 fingerprint and requires a new build — which is the intended behaviour, not an
 obstacle.
 
+That makes it easy to be running old code without knowing it: this project once
+spent four weeks with a phone on a 16 August build while every later change
+landed on GitHub, because a September config change had moved the fingerprint
+and no update could reach it. **Settings → About this build** now answers the
+question on the device — whether the code is the one built into the install or a
+downloaded update, the runtime version abbreviated the way `eas build:list`
+shows it, and the channel. If that runtime doesn't match the one your latest
+`eas update` published, the update isn't going to arrive; build again.
+
+An update that does match still isn't applied on the launch that downloads it —
+`expo-updates` checks on load and applies on the next cold start. **Check for
+updates** in the same section downloads and reloads immediately.
+
 ## Layout
 
 | Path | What lives there |

@@ -12,11 +12,28 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Updates from 'expo-updates';
 import { Avatar } from '../../components/Avatar';
 import { useAiStatusStore, type AiCommentStatus } from '../../state/aiStatusStore';
 import { VISION_MODELS, useSettingsStore, type VisionModelId } from '../../state/settingsStore';
 import { colors, radii, spacing, type } from '../../theme/tokens';
+import { describeBuild } from '../../utils/buildInfo';
+import { warn } from '../../utils/log';
 import { PhotoPickerSheet } from './PhotoPickerSheet';
+
+/**
+ * Read once at module load. None of these can change while the JS is running —
+ * applying an update means `reloadAsync()` or a cold start, and both re-evaluate
+ * this module — so there is nothing to subscribe to.
+ */
+const BUILD = describeBuild({
+  isDev: __DEV__,
+  isEnabled: Updates.isEnabled,
+  isEmbeddedLaunch: Updates.isEmbeddedLaunch,
+  createdAt: Updates.createdAt,
+  runtimeVersion: Updates.runtimeVersion,
+  channel: Updates.channel,
+});
 
 interface SettingsSheetProps {
   visible: boolean;
@@ -72,6 +89,35 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
   };
   const commitApiKey = () => setApiKey(apiKeyDraft);
   const statusNote = aiStatusNote(aiStatus);
+  const [updateCheck, setUpdateCheck] = useState<UpdateCheckState>('idle');
+
+  /**
+   * Check, download and apply in one tap. `expo-updates` already checks on every
+   * launch, but it applies what it finds on the *next* cold start — so a freshly
+   * published update looks like it failed the first time the app is opened. This
+   * is the way past that without force-closing the app.
+   *
+   * A rollback to the embedded bundle counts as something to apply too: it is
+   * what a republished-then-rolled-back channel asks for.
+   */
+  const checkForUpdate = async () => {
+    setUpdateCheck('checking');
+    try {
+      const result = await Updates.checkForUpdateAsync();
+      if (!result.isAvailable && !result.isRollBackToEmbedded) {
+        setUpdateCheck('current');
+        return;
+      }
+      setUpdateCheck('downloading');
+      await Updates.fetchUpdateAsync();
+      // Restarts the JS, so nothing after this runs on success.
+      await Updates.reloadAsync();
+    } catch (error) {
+      warn('updates', error);
+      setUpdateCheck('failed');
+    }
+  };
+  const updateBusy = updateCheck === 'checking' || updateCheck === 'downloading';
 
   const close = () => {
     commitHandle();
@@ -257,6 +303,41 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
                 <Text style={styles.statusText}>{statusNote}</Text>
               </View>
             )}
+
+            <View style={styles.divider} />
+
+            {/* Last on the sheet on purpose: nobody needs it until something
+                they expected to change didn't, and then it is the first thing
+                worth checking. */}
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>About this build</Text>
+              {BUILD.kind === 'release' ? (
+                <>
+                  <View style={styles.buildRows}>
+                    <BuildRow label="Code" value={BUILD.code} />
+                    <BuildRow label="Runtime" value={BUILD.runtime} />
+                    <BuildRow label="Channel" value={BUILD.channel} />
+                  </View>
+                  <Pressable
+                    onPress={checkForUpdate}
+                    disabled={updateBusy}
+                    accessibilityRole="button"
+                    accessibilityLabel="Check for updates"
+                    accessibilityState={{ busy: updateBusy }}
+                    style={({ pressed }) => [styles.updateButton, pressed && styles.pressed]}
+                  >
+                    <Text
+                      style={[styles.updateLabel, updateCheck === 'failed' && styles.updateLabelFailed]}
+                      allowFontScaling={false}
+                    >
+                      {updateCheckLabel(updateCheck)}
+                    </Text>
+                  </Pressable>
+                </>
+              ) : (
+                <Text style={styles.hint}>{BUILD.summary}</Text>
+              )}
+            </View>
           </ScrollView>
 
           <Pressable
@@ -345,6 +426,34 @@ function aiStatusNote(status: AiCommentStatus): string | undefined {
     case 'transient':
       return 'No comments were generated last time — the connection to the API kept failing.';
   }
+}
+
+type UpdateCheckState = 'idle' | 'checking' | 'current' | 'downloading' | 'failed';
+
+function updateCheckLabel(state: UpdateCheckState): string {
+  switch (state) {
+    case 'idle':
+      return 'Check for updates';
+    case 'checking':
+      return 'Checking…';
+    case 'current':
+      return 'Up to date';
+    case 'downloading':
+      return 'Downloading — the app will restart';
+    case 'failed':
+      return 'Couldn’t check — try again';
+  }
+}
+
+function BuildRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.buildRow}>
+      <Text style={styles.hint}>{label}</Text>
+      <Text style={styles.buildValue} numberOfLines={1}>
+        {value}
+      </Text>
+    </View>
+  );
 }
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -447,6 +556,40 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: colors.warning,
     lineHeight: 17,
+  },
+  buildRows: {
+    gap: spacing.xs,
+  },
+  buildRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    gap: spacing.lg,
+  },
+  buildValue: {
+    ...type.small,
+    color: colors.textPrimary,
+    // Runtime hashes are compared against `eas build:list` character by
+    // character; fixed-width digits keep them from shifting as they change.
+    fontVariant: ['tabular-nums'],
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  updateButton: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm + 2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.hairline,
+    paddingVertical: spacing.md,
+    marginTop: spacing.xs,
+  },
+  updateLabel: {
+    ...type.label,
+    color: colors.textPrimary,
+  },
+  updateLabelFailed: {
+    color: colors.warning,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
